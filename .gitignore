@@ -1,0 +1,7 @@
+_output
+
+*.test
+*.out
+
+.idea
+.vscode
