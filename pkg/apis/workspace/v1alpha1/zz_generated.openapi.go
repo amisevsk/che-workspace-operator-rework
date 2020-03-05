@@ -11,9 +11,56 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"./pkg/apis/workspace/v1alpha1.Workspace":       schema_pkg_apis_workspace_v1alpha1_Workspace(ref),
-		"./pkg/apis/workspace/v1alpha1.WorkspaceSpec":   schema_pkg_apis_workspace_v1alpha1_WorkspaceSpec(ref),
-		"./pkg/apis/workspace/v1alpha1.WorkspaceStatus": schema_pkg_apis_workspace_v1alpha1_WorkspaceStatus(ref),
+		"./pkg/apis/workspace/v1alpha1.Component":                schema_pkg_apis_workspace_v1alpha1_Component(ref),
+		"./pkg/apis/workspace/v1alpha1.Workspace":                schema_pkg_apis_workspace_v1alpha1_Workspace(ref),
+		"./pkg/apis/workspace/v1alpha1.WorkspaceComponentSpec":   schema_pkg_apis_workspace_v1alpha1_WorkspaceComponentSpec(ref),
+		"./pkg/apis/workspace/v1alpha1.WorkspaceComponentStatus": schema_pkg_apis_workspace_v1alpha1_WorkspaceComponentStatus(ref),
+		"./pkg/apis/workspace/v1alpha1.WorkspaceSpec":            schema_pkg_apis_workspace_v1alpha1_WorkspaceSpec(ref),
+		"./pkg/apis/workspace/v1alpha1.WorkspaceStatus":          schema_pkg_apis_workspace_v1alpha1_WorkspaceStatus(ref),
+	}
+}
+
+func schema_pkg_apis_workspace_v1alpha1_Component(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Component is the Schema for the components API",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("./pkg/apis/workspace/v1alpha1.WorkspaceComponentSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("./pkg/apis/workspace/v1alpha1.WorkspaceComponentStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"./pkg/apis/workspace/v1alpha1.WorkspaceComponentSpec", "./pkg/apis/workspace/v1alpha1.WorkspaceComponentStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -58,6 +105,84 @@ func schema_pkg_apis_workspace_v1alpha1_Workspace(ref common.ReferenceCallback) 
 		},
 		Dependencies: []string{
 			"./pkg/apis/workspace/v1alpha1.WorkspaceSpec", "./pkg/apis/workspace/v1alpha1.WorkspaceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_workspace_v1alpha1_WorkspaceComponentSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ComponentSpec defines the desired state of Component",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"workspaceId": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"components": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "map +listMapKey=name",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("./pkg/apis/workspace/v1alpha1.ComponentSpec"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"workspaceId", "components"},
+			},
+		},
+		Dependencies: []string{
+			"./pkg/apis/workspace/v1alpha1.ComponentSpec"},
+	}
+}
+
+func schema_pkg_apis_workspace_v1alpha1_WorkspaceComponentStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ComponentStatus defines the observed state of Component",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"ready": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"componentDescriptions": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "map +listMapKey=name",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("./pkg/apis/workspace/v1alpha1.ComponentDescription"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"ready", "componentDescriptions"},
+			},
+		},
+		Dependencies: []string{
+			"./pkg/apis/workspace/v1alpha1.ComponentDescription"},
 	}
 }
 
@@ -110,15 +235,55 @@ func schema_pkg_apis_workspace_v1alpha1_WorkspaceStatus(ref common.ReferenceCall
 							Format: "",
 						},
 					},
-					"phase": {
+					"status": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
+					"condition": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Conditions represent the latest available observations of an object's state",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("./pkg/apis/workspace/v1alpha1.WorkspaceCondition"),
+									},
+								},
+							},
+						},
+					},
+					"components": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": []interface{}{
+									"map",
+									"map +listMapKey=name",
+								},
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("./pkg/apis/workspace/v1alpha1.ComponentDescription"),
+									},
+								},
+							},
+						},
+					},
 				},
-				Required: []string{"workspaceId", "phase"},
+				Required: []string{"workspaceId", "status"},
 			},
 		},
+		Dependencies: []string{
+			"./pkg/apis/workspace/v1alpha1.ComponentDescription", "./pkg/apis/workspace/v1alpha1.WorkspaceCondition"},
 	}
 }

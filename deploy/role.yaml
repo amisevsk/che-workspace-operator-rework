@@ -58,5 +58,6 @@ rules:
   - workspace.che.eclipse.org
   resources:
   - '*'
+  - components
   verbs:
   - '*'

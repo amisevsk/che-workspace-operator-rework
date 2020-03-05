@@ -2,14 +2,26 @@ module github.com/che-incubator/che-workspace-operator
 
 go 1.13
 
+// Che Plugin Broker branch devworkspace-controller
+require github.com/eclipse/che-plugin-broker v3.1.1-0.20200207223144-b20597f15e4c+incompatible
+
 require (
+	github.com/eclipse/che-go-jsonrpc v0.0.0-20181205102516-87cdb8da2597 // indirect
+	github.com/go-openapi/spec v0.19.0
+	github.com/google/go-cmp v0.3.0
+	github.com/google/uuid v1.0.0
+	github.com/openshift/api v3.9.1-0.20190424152011-77b8897ec79a+incompatible
 	github.com/operator-framework/operator-sdk v0.12.0
 	github.com/spf13/pflag v1.0.3
 	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v11.0.0+incompatible
+	k8s.io/kube-openapi v0.0.0-20190918143330-0270cf2f1c1d
 	sigs.k8s.io/controller-runtime v0.3.0
 )
+
+// Ovveride OpenShift API to be compatible with Go 1.13
+replace github.com/openshift/api v3.9.1-0.20190424152011-77b8897ec79a+incompatible => github.com/openshift/api v0.0.0-20190424152011-77b8897ec79a
 
 // Pinned to kubernetes-1.15.4
 replace (

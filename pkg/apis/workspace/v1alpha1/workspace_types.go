@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -20,20 +21,41 @@ type WorkspaceSpec struct {
 // +k8s:openapi-gen=true
 type WorkspaceStatus struct {
 	WorkspaceId string `json:"workspaceId"`
-	Phase WorkspacePhase `json:"phase"`
+	Status WorkspaceStatusType `json:"status"`
+	// Conditions represent the latest available observations of an object's state
+	// +listType=map
+	Condition  []WorkspaceCondition   `json:"condition,omitempty"`
+	// +listType=map
+	// +listType=map +listMapKey=name
+	Components []ComponentDescription `json:"components,omitempty"`
 }
+
+// WorkspaceCondition contains details for the current condition of this workspace.
+type WorkspaceCondition struct {
+	// Type is the type of the condition.
+	Type string `json:"type"` // TODO
+	// Status is the status of the condition.
+	// Can be True, False, Unknown.
+	Status corev1.ConditionStatus `json:"status"`
+	// Last time the condition transitioned from one status to another.
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+	// Unique, one-word, CamelCase reason for the condition's last transition.
+	Reason string `json:"reason,omitempty"`
+	// Human-readable message indicating details about last transition.
+	Message string `json:"message,omitempty"`
+}
+
+type WorkspaceStatusType string
+// Valid workspace Statuses
+const (
+	WorkspaceStatusStarting WorkspaceStatusType = "Starting"
+	WorkspaceStatusStarted WorkspaceStatusType = "Started"
+	WorkspaceStatusStopped WorkspaceStatusType = "Stopped"
+	WorkspaceStatusFailed WorkspaceStatusType = "Failed"
+)
 
 // WorkspacePhase is a label for the condition of a workspace at the current time.
 type WorkspacePhase string
-
-// These are the valid statuses of pods.
-const (
-	WorkspacePhaseStopped  WorkspacePhase = "Stopped"
-	WorkspacePhaseStarting WorkspacePhase = "Starting"
-	WorkspacePhaseStopping WorkspacePhase = "Stopping"
-	WorkspacePhaseRunning  WorkspacePhase = "Running"
-	WorkspacePhaseFailed   WorkspacePhase = "Failed"
-)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

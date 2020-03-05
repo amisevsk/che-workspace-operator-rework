@@ -1,0 +1,43 @@
+#
+# Copyright (c) 2018 Red Hat, Inc.
+# This program and the accompanying materials are made
+# available under the terms of the Eclipse Public License 2.0
+# which is available at https://www.eclipse.org/legal/epl-2.0/
+#
+# SPDX-License-Identifier: EPL-2.0
+#
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: che-plugin-registry
+  name: che-plugin-registry
+  namespace: che-workspace-controller
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: che-plugin-registry
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+  template:
+    metadata:
+      labels:
+        app: che-plugin-registry
+    spec:
+      containers:
+      - image: quay.io/eclipse/che-plugin-registry:7.8.0
+        imagePullPolicy: Always
+        name: che-plugin-registry
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            memory: 256Mi
+          requests:
+            memory: 16Mi
