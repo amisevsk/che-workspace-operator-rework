@@ -18,6 +18,7 @@ import (
 	"github.com/che-incubator/che-workspace-operator/internal/cluster"
 	"github.com/che-incubator/che-workspace-operator/pkg/controller/registry"
 	"os"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
 
 	routeV1 "github.com/openshift/api/route/v1"
@@ -34,12 +35,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	. "github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/log"
 
 	"fmt"
 )
 
 var ControllerCfg ControllerConfig
+var log = logf.Log.WithName("controller_workspace_config")
 
 const (
 	ConfigMapNameEnvVar      = "CONTROLLER_CONFIG_MAP_NAME"
@@ -57,7 +58,7 @@ type ControllerConfig struct {
 }
 
 func (wc *ControllerConfig) update(configMap *corev1.ConfigMap) {
-	Log.Info("Updating the configuration from config map '%s' in namespace '%s'", configMap.Name, configMap.Namespace)
+	log.Info("Updating the configuration from config map '%s' in namespace '%s'", configMap.Name, configMap.Namespace)
 	wc.configMap = configMap
 }
 
@@ -130,7 +131,7 @@ func updateConfigMap(client client.Client, meta metav1.Object, obj runtime.Objec
 	configMap := &corev1.ConfigMap{}
 	err := client.Get(context.TODO(), ConfigMapReference, configMap)
 	if err != nil {
-		Log.Error(err, fmt.Sprintf("Cannot find the '%s' ConfigMap in namespace '%s'", ConfigMapReference.Name, ConfigMapReference.Namespace))
+		log.Error(err, fmt.Sprintf("Cannot find the '%s' ConfigMap in namespace '%s'", ConfigMapReference.Name, ConfigMapReference.Namespace))
 	}
 	ControllerCfg.update(configMap)
 }
@@ -157,7 +158,7 @@ func WatchControllerConfig(ctr controller.Controller, mgr manager.Manager) error
 	if err != nil {
 		return err
 	}
-	Log.Info(fmt.Sprintf("Searching for config map '%s' in namespace '%s'", ConfigMapReference.Name, ConfigMapReference.Namespace))
+	log.Info(fmt.Sprintf("Searching for config map '%s' in namespace '%s'", ConfigMapReference.Name, ConfigMapReference.Namespace))
 	err = nonCachedClient.Get(context.TODO(), ConfigMapReference, configMap)
 	if err != nil {
 		if !k8sErrors.IsNotFound(err) {
@@ -173,9 +174,9 @@ func WatchControllerConfig(ctr controller.Controller, mgr manager.Manager) error
 		if err != nil {
 			return err
 		}
-		Log.Info(fmt.Sprintf("  => created config map '%s' in namespace '%s'", configMap.GetObjectMeta().GetName(), configMap.GetObjectMeta().GetNamespace()))
+		log.Info(fmt.Sprintf("  => created config map '%s' in namespace '%s'", configMap.GetObjectMeta().GetName(), configMap.GetObjectMeta().GetNamespace()))
 	} else {
-		Log.Info(fmt.Sprintf("  => found config map '%s' in namespace '%s'", configMap.GetObjectMeta().GetName(), configMap.GetObjectMeta().GetNamespace()))
+		log.Info(fmt.Sprintf("  => found config map '%s' in namespace '%s'", configMap.GetObjectMeta().GetName(), configMap.GetObjectMeta().GetNamespace()))
 	}
 
 	err = fillOpenShiftRouteSuffixIfNecessary(nonCachedClient, configMap)
