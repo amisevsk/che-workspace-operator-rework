@@ -16,7 +16,7 @@ spec:
       containers:
         - name: che-workspace-operator
           # Replace this with the built image name
-          image: REPLACE_IMAGE
+          image: quay.io/che-incubator/che-workspace-controller:nightly
           command:
           - che-workspace-operator
           imagePullPolicy: Always

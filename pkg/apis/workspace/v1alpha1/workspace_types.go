@@ -11,7 +11,7 @@ type WorkspaceSpec struct {
 	// Whether the workspace should be started or stopped
 	Started bool `json:"started"`
 	// Routing class the defines how the workspace will be exposed to the external network
-	RoutingClass string `json:"routingClass,omitempty"`
+	RoutingClass WorkspaceRoutingClass `json:"routingClass,omitempty"`
 	// Workspace Structure defined in the Devfile format syntax.
 	// For more details see the Che 7 documentation: https://www.eclipse.org/che/docs/che-7/making-a-workspace-portable-using-a-devfile/
 	Devfile DevfileSpec `json:"devfile"`
@@ -20,11 +20,11 @@ type WorkspaceSpec struct {
 // WorkspaceStatus defines the observed state of Workspace
 // +k8s:openapi-gen=true
 type WorkspaceStatus struct {
-	WorkspaceId string `json:"workspaceId"`
-	Status WorkspaceStatusType `json:"status"`
+	WorkspaceId string              `json:"workspaceId"`
+	Status      WorkspaceStatusType `json:"status"`
 	// Conditions represent the latest available observations of an object's state
 	// +listType=map
-	Condition  []WorkspaceCondition   `json:"condition,omitempty"`
+	Condition []WorkspaceCondition `json:"condition,omitempty"`
 	// +listType=map
 	// +listType=map +listMapKey=name
 	Components []ComponentDescription `json:"components,omitempty"`
@@ -46,12 +46,13 @@ type WorkspaceCondition struct {
 }
 
 type WorkspaceStatusType string
+
 // Valid workspace Statuses
 const (
 	WorkspaceStatusStarting WorkspaceStatusType = "Starting"
-	WorkspaceStatusStarted WorkspaceStatusType = "Started"
-	WorkspaceStatusStopped WorkspaceStatusType = "Stopped"
-	WorkspaceStatusFailed WorkspaceStatusType = "Failed"
+	WorkspaceStatusStarted  WorkspaceStatusType = "Started"
+	WorkspaceStatusStopped  WorkspaceStatusType = "Stopped"
+	WorkspaceStatusFailed   WorkspaceStatusType = "Failed"
 )
 
 // WorkspacePhase is a label for the condition of a workspace at the current time.

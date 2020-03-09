@@ -126,7 +126,7 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 	// Get list of components we expect from the spec
 	specComponents, err := r.getSpecComponents(workspace)
 	if err != nil {
-
+		return reconcile.Result{}, err
 	}
 	// Get currently deployed components
 	clusterComponents, err := r.getClusterComponents(workspace)
@@ -155,6 +155,62 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 		workspace.Status.Status = workspacev1alpha1.WorkspaceStatusStarted
 		updateErr := r.client.Status().Update(context.TODO(), workspace)
 		return reconcile.Result{Requeue: true}, updateErr
+	}
+
+	var componentDescriptions []workspacev1alpha1.ComponentDescription
+	for _, clusterComponent := range clusterComponents {
+		componentDescriptions = append(componentDescriptions, clusterComponent.Status.ComponentDescriptions...)
+	}
+
+	specRouting, err := r.getSpecRouting(workspace, componentDescriptions)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	clusterRouting, err := r.getClusterRouting(specRouting.Name, specRouting.Namespace)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if clusterRouting == nil {
+		reqLogger.Info("Creating WorkspaceRouting")
+		err := r.client.Create(context.TODO(), specRouting)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	if !diffRouting(specRouting, clusterRouting) {
+		reqLogger.Info("Updating WorkspaceRouting")
+		clusterRouting.Spec = specRouting.Spec
+		err := r.client.Update(context.TODO(), clusterRouting)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	if !clusterRouting.Status.Ready {
+		reqLogger.Info("Waiting on WorkspaceRouting")
+		return reconcile.Result{}, nil
+	}
+
+	var podAdditions []workspacev1alpha1.PodAdditions
+	for _, componentDesc := range componentDescriptions {
+		podAdditions = append(podAdditions, componentDesc.PodAdditions)
+	}
+	if clusterRouting.Status.PodAdditions != nil {
+		podAdditions = append(podAdditions, *clusterRouting.Status.PodAdditions)
+	}
+
+	workspaceDeployment, err := r.createWorkspaceDeployment(workspace, podAdditions)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	reqLogger.Info("Creating workspace deployment")
+	err = r.client.Create(context.TODO(), workspaceDeployment)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
 	reqLogger.Info("Everything ready :)")

@@ -1,22 +1,9 @@
 package v1alpha1
 
-import (
-	corev1 "k8s.io/api/core/v1"
-)
-
 type ComponentDescription struct {
-	Name              string                `json:"name"`
-	PodAdditions      ComponentPodAdditions `json:"podAdditions"`
-	ComponentMetadata ComponentMetadata     `json:"componentMetadata"`
-}
-
-type ComponentPodAdditions struct {
-	Annotations    map[string]string `json:"annotations,omitempty"`
-	Labels         map[string]string `json:"labels,omitempty"`
-	Containers     []corev1.Container `json:"containers,omitempty"`
-	InitContainers []corev1.Container `json:"initContainers,omitempty"`
-	Volumes        []corev1.Volume `json:"volumes,omitempty"`
-	PullSecrets    []corev1.LocalObjectReference `json:"pullSecrets,omitempty"`
+	Name              string            `json:"name"`
+	PodAdditions      PodAdditions      `json:"podAdditions"`
+	ComponentMetadata ComponentMetadata `json:"componentMetadata"`
 }
 
 type ComponentMetadata struct {

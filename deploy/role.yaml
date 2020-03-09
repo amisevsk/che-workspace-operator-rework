@@ -59,5 +59,6 @@ rules:
   resources:
   - '*'
   - components
+  - workspaceroutings
   verbs:
   - '*'

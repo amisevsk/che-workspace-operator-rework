@@ -1,7 +1,0 @@
-apiVersion: workspace.che.eclipse.org/v1alpha1
-kind: Component
-metadata:
-  name: example-component
-spec:
-  # Add fields here
-  size: 3
