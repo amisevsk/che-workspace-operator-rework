@@ -116,30 +116,26 @@ func (r *ReconcileWorkspaceRouting) Reconcile(request reconcile.Request) (reconc
 	}
 
 	services, ingresses, _ := GetSpecObjects(instance.Spec, instance.Namespace)
-
-	// TODO: Implement state syncing
 	for _, service := range services {
 		controllerutil.SetControllerReference(instance, &service, r.scheme)
-		err = r.client.Create(context.TODO(), &service)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
 	}
-
 	for _, ingress := range ingresses {
 		controllerutil.SetControllerReference(instance, &ingress, r.scheme)
-		err = r.client.Create(context.TODO(), &ingress)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
+	}
+
+	servicesInSync, err := r.syncServices(instance, services)
+	if err != nil || !servicesInSync {
+		return reconcile.Result{Requeue: true}, err
+	}
+
+	ingressesInSync, err := r.syncIngresses(instance, ingresses)
+	if err != nil || !ingressesInSync {
+		return reconcile.Result{Requeue: true}, err
 	}
 
 	instance.Status.Ready = true
 	instance.Status.PodAdditions = nil
 	instance.Status.ExposedEndpoints = nil // TODO
 	err = r.client.Status().Update(context.TODO(), instance)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	return reconcile.Result{}, nil
+	return reconcile.Result{}, err
 }

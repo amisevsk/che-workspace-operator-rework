@@ -13,9 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-var componentDiffOpts = cmp.Options{
-	cmpopts.IgnoreFields(v1alpha1.Component{}, "TypeMeta", "ObjectMeta", "Status"),
-}
 
 func (r *ReconcileWorkspace) syncComponents(specComponents, clusterComponents []v1alpha1.Component) error {
 	create, update, delete := sortComponents(specComponents, clusterComponents)

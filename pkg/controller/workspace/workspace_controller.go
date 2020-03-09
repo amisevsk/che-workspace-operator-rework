@@ -23,6 +23,21 @@ import (
 
 var log = logf.Log.WithName("controller_workspace")
 
+type ProvisioningPhase interface {
+	SyncObjectsToCluster(workspace *workspacev1alpha1.Workspace, client client.Client, scheme *runtime.Scheme) ProvisioningStatus
+}
+
+type ProvisioningStatus struct {
+	// Continue should be true if cluster state matches spec state for this step
+	Continue bool
+	Requeue  bool
+	Err      error
+	// May be nil
+	PodAdditions *workspacev1alpha1.PodAdditions
+	// May be nil
+	ComponentDescriptions []workspacev1alpha1.ComponentDescription
+}
+
 // Add creates a new Workspace Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
@@ -151,11 +166,12 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, nil
 	}
 
-	if workspace.Status.Status != workspacev1alpha1.WorkspaceStatusStarted {
-		workspace.Status.Status = workspacev1alpha1.WorkspaceStatusStarted
-		updateErr := r.client.Status().Update(context.TODO(), workspace)
-		return reconcile.Result{Requeue: true}, updateErr
-	}
+	// TODO?
+	//if workspace.Status.Status != workspacev1alpha1.WorkspaceStatusStarted {
+	//	workspace.Status.Status = workspacev1alpha1.WorkspaceStatusStarted
+	//	updateErr := r.client.Status().Update(context.TODO(), workspace)
+	//	return reconcile.Result{Requeue: true}, updateErr
+	//}
 
 	var componentDescriptions []workspacev1alpha1.ComponentDescription
 	for _, clusterComponent := range clusterComponents {
