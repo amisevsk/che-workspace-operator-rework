@@ -1,39 +1,145 @@
 package adaptor
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
 	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	metadataBroker "github.com/eclipse/che-plugin-broker/brokers/metadata"
 	brokerModel "github.com/eclipse/che-plugin-broker/model"
 	"github.com/eclipse/che-plugin-broker/utils"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strconv"
 	"strings"
 )
 
-func AdaptPluginComponents(devfileComponents []v1alpha1.ComponentSpec) ([]v1alpha1.ComponentDescription, error) {
+
+func AdaptPluginComponents(workspaceId, namespace string, devfileComponents []v1alpha1.ComponentSpec) ([]v1alpha1.ComponentDescription, *corev1.ConfigMap, error) {
 	var components []v1alpha1.ComponentDescription
 
 	broker := metadataBroker.NewBroker(true)
 
 	metas, err := getMetasForComponents(devfileComponents)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	plugins, err := broker.ProcessPlugins(metas)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	for _, plugin := range plugins {
 		component, err := adaptChePluginToComponent(plugin)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		components = append(components, component)
 	}
 
-	return components, nil
+	var artifactsBrokerCM *corev1.ConfigMap
+	if isArtifactsBrokerNecessary(metas) {
+		artifactsBrokerComponent, configMap, err := getArtifactsBrokerComponent(workspaceId, namespace, devfileComponents)
+		if err != nil {
+			return nil, nil, err
+		}
+		components = append(components, *artifactsBrokerComponent)
+		artifactsBrokerCM = configMap
+	}
+
+	return components, artifactsBrokerCM, nil
+}
+
+func getArtifactsBrokerComponent(workspaceId, namespace string, components []v1alpha1.ComponentSpec) (*v1alpha1.ComponentDescription, *corev1.ConfigMap, error) {
+	const (
+		configMapVolumeName = "broker-config-volume"
+		configMapMountPath  = "/broker-config"
+		configMapDataName   = "config.json"
+	)
+	configMapName := fmt.Sprintf("%s.broker-config-map", workspaceId)
+	brokerImage := config.ControllerCfg.GetPluginArtifactsBrokerImage()
+	brokerContainerName := "plugin-artifacts-broker"
+
+	var fqns []brokerModel.PluginFQN
+	for _, component := range components {
+		fqns = append(fqns, getPluginFQN(component))
+	}
+	cmData, err := json.Marshal(fqns)
+	if err != nil{
+		return nil, nil, err
+	}
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configMapName,
+			Namespace: namespace,
+			Labels: map[string]string{
+				config.WorkspaceIDLabel: workspaceId,
+			},
+		},
+		Data:       map[string]string{
+			configMapDataName: string(cmData),
+		},
+	}
+	// Define volumes used by plugin broker
+	cmVolume := corev1.Volume{
+		Name: configMapVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: configMapName,
+				},
+			},
+		},
+	}
+
+	cmVolumeMounts := []corev1.VolumeMount{
+		{
+			MountPath: configMapMountPath,
+			Name:      configMapVolumeName,
+			ReadOnly:  true,
+		},
+		{
+			MountPath: config.PluginsMountPath,
+			Name:      config.ControllerCfg.GetWorkspacePVCName(),
+			SubPath:   workspaceId + "/plugins",
+		},
+	}
+
+	initContainer := corev1.Container{
+		Name:                     brokerContainerName,
+		Image:                    brokerImage,
+		ImagePullPolicy:          corev1.PullPolicy(config.ControllerCfg.GetSidecarPullPolicy()),
+		VolumeMounts:             cmVolumeMounts,
+		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+		Args: []string{
+			"--disable-push",
+			"--runtime-id",
+			fmt.Sprintf("%s:%s:%s", workspaceId, "default", "anonymous"),
+			"--registry-address",
+			config.ControllerCfg.GetPluginRegistry(),
+			"--metas",
+			fmt.Sprintf("%s/%s", configMapMountPath, configMapDataName),
+		},
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("150Mi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("150Mi"),
+			},
+		},
+	}
+
+	brokerComponent := &v1alpha1.ComponentDescription{
+		Name:              "artifacts-broker",
+		PodAdditions:      v1alpha1.PodAdditions{
+			InitContainers: []corev1.Container{initContainer},
+			Volumes: []corev1.Volume{cmVolume},
+		},
+	}
+
+	return brokerComponent, cm, nil
 }
 
 func adaptChePluginToComponent(plugin brokerModel.ChePlugin) (v1alpha1.ComponentDescription, error) {
@@ -84,8 +190,8 @@ func createEndpointsFromPlugin(plugin brokerModel.ChePlugin) []v1alpha1.Endpoint
 func convertPluginContainer(brokerContainer brokerModel.Container, pluginID string) (corev1.Container, v1alpha1.ContainerDescription, error) {
 	memorylimit := brokerContainer.MemoryLimit
 	if memorylimit == "" {
-		memorylimit = "128Mi"
-	} // todo
+		memorylimit = config.SidecarDefaultMemoryLimit
+	}
 	containerResources, err := adaptResourcesFromString(memorylimit)
 	if err != nil {
 		return corev1.Container{}, v1alpha1.ContainerDescription{}, err
@@ -150,6 +256,15 @@ func adaptVolumeMountsFromBroker(brokerContainer brokerModel.Container) []corev1
 	}
 
 	return volumeMounts
+}
+
+func isArtifactsBrokerNecessary(metas []brokerModel.PluginMeta) bool {
+	for _, meta := range metas {
+		if len(meta.Spec.Extensions) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func getMetasForComponents(components []v1alpha1.ComponentSpec) ([]brokerModel.PluginMeta, error) {

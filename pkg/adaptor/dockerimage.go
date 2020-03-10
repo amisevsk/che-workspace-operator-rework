@@ -1,14 +1,19 @@
 package adaptor
 
 import (
+	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
 	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	corev1 "k8s.io/api/core/v1"
+	"strings"
 )
 
 func AdaptDockerimageComponents(devfileComponents []v1alpha1.ComponentSpec) ([]v1alpha1.ComponentDescription, error) {
 	var components []v1alpha1.ComponentDescription
 	for _, devfileComponent := range devfileComponents {
+		if devfileComponent.Type != v1alpha1.Dockerimage {
+			return nil, fmt.Errorf("cannot adapt non-dockerfile type component %s in docker adaptor", devfileComponent.Alias)
+		}
 		component, err := adaptDockerimageComponent(devfileComponent)
 		if err != nil {
 			return nil, err
@@ -52,7 +57,7 @@ func getContainerFromDevfile(devfileComponent v1alpha1.ComponentSpec) (corev1.Co
 	for _, devfileEnvVar := range devfileComponent.Env {
 		env = append(env, corev1.EnvVar{
 			Name:  devfileEnvVar.Name,
-			Value: devfileEnvVar.Value,
+			Value: strings.ReplaceAll(devfileEnvVar.Value, "$(CHE_PROJECTS_ROOT)", config.DefaultProjectsSourcesRoot),
 		})
 	}
 	env = append(env, corev1.EnvVar{
@@ -73,7 +78,9 @@ func getContainerFromDevfile(devfileComponent v1alpha1.ComponentSpec) (corev1.Co
 	}
 
 	containerDescription := v1alpha1.ContainerDescription{
-		Attributes: map[string]string{}, // TODO
+		Attributes: map[string]string{
+			config.RestApisContainerSourceAttribute: config.RestApisContainerSourceAttribute,
+		},
 		Ports:      endpointInts,
 	}
 	return container, containerDescription, nil

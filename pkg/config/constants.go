@@ -12,10 +12,6 @@
 
 package config
 
-import (
-	corev1 "k8s.io/api/core/v1"
-)
-
 // Internal constants
 const (
 	//default URL for accessing Che Rest API Emulator from Workspace containers
@@ -24,12 +20,11 @@ const (
 	DefaultProjectsSourcesRoot = "/projects"
 
 	DefaultPluginsVolumeName = "plugins"
+	PluginsMountPath = "/plugins"
 
 	CheOriginalName = "workspace"
 
 	AuthEnabled = "false"
-
-	ServicePortProtocol = corev1.ProtocolTCP
 
 	ServiceAccount = "che-workspace"
 

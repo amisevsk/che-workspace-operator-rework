@@ -3,11 +3,15 @@ package adaptor
 import (
 	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
+	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func adaptResourcesFromString(memLimit string) (corev1.ResourceRequirements, error) {
+	if memLimit == "" {
+		memLimit = config.SidecarDefaultMemoryLimit
+	}
 	memLimitQuantity, err := resource.ParseQuantity(memLimit)
 	if err != nil {
 		return corev1.ResourceRequirements{}, err

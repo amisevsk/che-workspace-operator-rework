@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"strings"
 )
 
 type DeploymentProvisioningStatus struct {
@@ -30,6 +31,9 @@ var deploymentDiffOpts = cmp.Options{
 	cmpopts.IgnoreFields(corev1.PodSpec{}, "DNSPolicy", "SchedulerName", "DeprecatedServiceAccount"),
 	// TODO: Should we really be ignoring pullPolicy?
 	cmpopts.IgnoreFields(corev1.Container{}, "TerminationMessagePath", "TerminationMessagePolicy", "ImagePullPolicy"),
+	cmpopts.SortSlices(func(a, b corev1.Container) bool {
+		return strings.Compare(a.Name, b.Name) > 0
+	}),
 }
 
 func SyncDeploymentToCluster(
@@ -132,7 +136,7 @@ func getSpecDeployment(workspace *v1alpha1.Workspace, podAdditionsList []v1alpha
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": workspace.Status.WorkspaceId, // TODO
+					"app":                   workspace.Status.WorkspaceId, // TODO
 					config.WorkspaceIDLabel: workspace.Status.WorkspaceId,
 				},
 			},
@@ -150,7 +154,7 @@ func getSpecDeployment(workspace *v1alpha1.Workspace, podAdditionsList []v1alpha
 					Labels: map[string]string{
 						"app": workspace.Status.WorkspaceId, // TODO
 						// TODO: Copied in
-						"deployment":         workspace.Status.WorkspaceId,
+						"deployment":                workspace.Status.WorkspaceId,
 						config.CheOriginalNameLabel: config.CheOriginalName,
 						config.WorkspaceIDLabel:     workspace.Status.WorkspaceId,
 						config.WorkspaceNameLabel:   workspace.Name,

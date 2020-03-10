@@ -4,6 +4,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/adaptor"
+	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	workspacev1alpha1 "github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -18,6 +24,10 @@ import (
 )
 
 var log = logf.Log.WithName("controller_component")
+
+var configMapDiffOpts = cmp.Options{
+	cmpopts.IgnoreFields(corev1.ConfigMap{}, "TypeMeta", "ObjectMeta"),
+}
 
 // Add creates a new Component Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -80,10 +90,38 @@ func (r *ReconcileComponent) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	components, err := adaptDevfileComponents(instance.Spec.Components)
+	var components []workspacev1alpha1.ComponentDescription
+	dockerimageDevfileComponents, pluginDevfileComponents, err := adaptor.SortComponentsByType(instance.Spec.Components)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
+	dockerimageComponents, err := adaptor.AdaptDockerimageComponents(dockerimageDevfileComponents)
+	if err != nil {
+		reqLogger.Info("Failed to adapt dockerimage components")
+		return reconcile.Result{}, err
+	}
+	components = append(components, dockerimageComponents...)
+
+	pluginComponents, brokerConfigMap, err := adaptor.AdaptPluginComponents(instance.Spec.WorkspaceId, instance.Namespace, pluginDevfileComponents)
+	if err != nil {
+		reqLogger.Info("Failed to adapt plugin components")
+		return reconcile.Result{}, err
+	}
+	components = append(components, pluginComponents...)
+
+	if brokerConfigMap != nil {
+		// TODO: Broker CM will not be deleted if it's no longer needed while workspace is running
+		reqLogger.Info("Reconciling broker ConfigMap")
+		ok, err := r.reconcileConfigMap(instance, brokerConfigMap, reqLogger)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if !ok {
+			return reconcile.Result{Requeue: true}, nil
+		}
+	}
+
 	instance.Status.ComponentDescriptions = components
 	instance.Status.Ready = true
 	err = r.client.Status().Update(context.TODO(), instance)
@@ -93,26 +131,32 @@ func (r *ReconcileComponent) Reconcile(request reconcile.Request) (reconcile.Res
 	return reconcile.Result{}, nil
 }
 
-func adaptDevfileComponents(devfileComponents []workspacev1alpha1.ComponentSpec) ([]workspacev1alpha1.ComponentDescription, error) {
-	var components []workspacev1alpha1.ComponentDescription
-	dockerimageDevfileComponents, pluginDevfileComponents, err := adaptor.SortComponentsByType(devfileComponents)
+func (r *ReconcileComponent) reconcileConfigMap(instance *workspacev1alpha1.Component, cm *corev1.ConfigMap, log logr.Logger) (ok bool, err error) {
+	controllerutil.SetControllerReference(instance, cm, r.scheme)
+
+	clusterConfigMap := &corev1.ConfigMap{}
+	namespacedName := types.NamespacedName{
+		Namespace: cm.Namespace,
+		Name:      cm.Name,
+	}
+	err = r.client.Get(context.TODO(), namespacedName, clusterConfigMap)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 
-	dockerimageComponents, err := adaptor.AdaptDockerimageComponents(dockerimageDevfileComponents)
-	if err != nil {
-		fmt.Printf("Failed to adapt dockerimage components: %s", err)
-		return nil, err
+	if clusterConfigMap == nil {
+		log.Info("Creating broker ConfigMap")
+		err := r.client.Create(context.TODO(), cm)
+		return false, err
 	}
-	components = append(components, dockerimageComponents...)
 
-	pluginComponents, err := adaptor.AdaptPluginComponents(pluginDevfileComponents)
-	if err != nil {
-		fmt.Printf("Failed to adapt plugin components: %s", err)
-		return nil, err
+	if !cmp.Equal(cm, clusterConfigMap, configMapDiffOpts) {
+		log.Info("Updating broker ConfigMap")
+		log.V(2).Info(fmt.Sprintf("Diff: %s\n", cmp.Diff(cm, clusterConfigMap, configMapDiffOpts)))
+		clusterConfigMap.Data = cm.Data
+		err := r.client.Update(context.TODO(), clusterConfigMap)
+		return false, err
 	}
-	components = append(components, pluginComponents...)
 
-	return components, nil
+	return true, nil
 }
