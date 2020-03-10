@@ -111,22 +111,23 @@ func convertPluginContainer(brokerContainer brokerModel.Container, pluginID stri
 	}
 
 	container := corev1.Container{
-		Name:         brokerContainer.Name,
-		Image:        brokerContainer.Image,
-		Command:      brokerContainer.Command,
-		Args:         brokerContainer.Args,
-		Ports:        containerPorts,
-		Env:          env,
-		Resources:    containerResources,
-		VolumeMounts: adaptVolumeMountsFromBroker(brokerContainer),
+		Name:            brokerContainer.Name,
+		Image:           brokerContainer.Image,
+		Command:         brokerContainer.Command,
+		Args:            brokerContainer.Args,
+		Ports:           containerPorts,
+		Env:             env,
+		Resources:       containerResources,
+		VolumeMounts:    adaptVolumeMountsFromBroker(brokerContainer),
+		ImagePullPolicy: corev1.PullAlways,
 	}
 
 	containerDescription := v1alpha1.ContainerDescription{
 		Attributes: map[string]string{
 			server.CONTAINER_SOURCE_ATTRIBUTE: server.TOOL_CONTAINER_SOURCE,
-			server.PLUGIN_MACHINE_ATTRIBUTE: pluginID,
+			server.PLUGIN_MACHINE_ATTRIBUTE:   pluginID,
 		}, // TODO
-		Ports:      portInts,
+		Ports: portInts,
 	}
 
 	return container, containerDescription, nil

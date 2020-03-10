@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	workspacev1alpha1 "github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
+	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/components"
 	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/config"
+	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/deployment"
+	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/routing"
 	"github.com/google/uuid"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	appsv1 "k8s.io/api/apps/v1"
@@ -22,21 +25,6 @@ import (
 )
 
 var log = logf.Log.WithName("controller_workspace")
-
-type ProvisioningPhase interface {
-	SyncObjectsToCluster(workspace *workspacev1alpha1.Workspace, client client.Client, scheme *runtime.Scheme) ProvisioningStatus
-}
-
-type ProvisioningStatus struct {
-	// Continue should be true if cluster state matches spec state for this step
-	Continue bool
-	Requeue  bool
-	Err      error
-	// May be nil
-	PodAdditions *workspacev1alpha1.PodAdditions
-	// May be nil
-	ComponentDescriptions []workspacev1alpha1.ComponentDescription
-}
 
 // Add creates a new Workspace Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -93,7 +81,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		OwnerType:    &workspacev1alpha1.Workspace{},
 	})
 
-	// TODO: Watch workspaceroutings as well later
+	err = c.Watch(&source.Kind{Type: &workspacev1alpha1.WorkspaceRouting{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &workspacev1alpha1.Workspace{},
+	})
 
 	return nil
 }
@@ -138,95 +129,35 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 		workspace.Status.WorkspaceId = workspaceId
 	}
 
-	// Get list of components we expect from the spec
-	specComponents, err := r.getSpecComponents(workspace)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	// Get currently deployed components
-	clusterComponents, err := r.getClusterComponents(workspace)
-	if err != nil {
-		return reconcile.Result{}, err
+	// Step one: Create components, and wait for their states to be ready.
+	componentsStatus := components.SyncObjectsToCluster(workspace, r.client, r.scheme)
+	if !componentsStatus.Continue {
+		reqLogger.Info("Waiting on components to be ready")
+		return reconcile.Result{Requeue: componentsStatus.Requeue}, componentsStatus.Err
 	}
 
-	// Check that the created components match the current spec,
-	exist, ready, msg := r.checkComponents(specComponents, clusterComponents)
-	if !exist {
-		reqLogger.Info("Creating components; info: " + msg)
-		createErr := r.syncComponents(specComponents, clusterComponents)
-		if createErr != nil {
-			return reconcile.Result{}, createErr
-		}
-		workspace.Status.Status = workspacev1alpha1.WorkspaceStatusStarting
-		updateErr := r.client.Status().Update(context.TODO(), workspace)
-		return reconcile.Result{Requeue: true}, updateErr
+	componentDescriptions := componentsStatus.ComponentDescriptions
+
+	routingStatus := routing.SyncObjectsToCluster(workspace, componentDescriptions, r.client, r.scheme)
+	if !routingStatus.Continue {
+		reqLogger.Info("Waiting on routing to be ready")
+		return reconcile.Result{Requeue: routingStatus.Requeue}, routingStatus.Err
 	}
 
-	if !ready {
-		return reconcile.Result{}, nil
-	}
-
-	// TODO?
-	//if workspace.Status.Status != workspacev1alpha1.WorkspaceStatusStarted {
-	//	workspace.Status.Status = workspacev1alpha1.WorkspaceStatusStarted
-	//	updateErr := r.client.Status().Update(context.TODO(), workspace)
-	//	return reconcile.Result{Requeue: true}, updateErr
-	//}
-
-	var componentDescriptions []workspacev1alpha1.ComponentDescription
-	for _, clusterComponent := range clusterComponents {
-		componentDescriptions = append(componentDescriptions, clusterComponent.Status.ComponentDescriptions...)
-	}
-
-	specRouting, err := r.getSpecRouting(workspace, componentDescriptions)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	clusterRouting, err := r.getClusterRouting(specRouting.Name, specRouting.Namespace)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	if clusterRouting == nil {
-		reqLogger.Info("Creating WorkspaceRouting")
-		err := r.client.Create(context.TODO(), specRouting)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		return reconcile.Result{Requeue: true}, nil
-	}
-
-	if !diffRouting(specRouting, clusterRouting) {
-		reqLogger.Info("Updating WorkspaceRouting")
-		clusterRouting.Spec = specRouting.Spec
-		err := r.client.Update(context.TODO(), clusterRouting)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		return reconcile.Result{Requeue: true}, nil
-	}
-
-	if !clusterRouting.Status.Ready {
-		reqLogger.Info("Waiting on WorkspaceRouting")
-		return reconcile.Result{}, nil
-	}
+	routingPodAdditions := routingStatus.PodAdditions
 
 	var podAdditions []workspacev1alpha1.PodAdditions
 	for _, componentDesc := range componentDescriptions {
 		podAdditions = append(podAdditions, componentDesc.PodAdditions)
 	}
-	if clusterRouting.Status.PodAdditions != nil {
-		podAdditions = append(podAdditions, *clusterRouting.Status.PodAdditions)
+	if routingPodAdditions != nil {
+		podAdditions = append(podAdditions, *routingPodAdditions)
 	}
 
-	workspaceDeployment, err := r.createWorkspaceDeployment(workspace, podAdditions)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	reqLogger.Info("Creating workspace deployment")
-	err = r.client.Create(context.TODO(), workspaceDeployment)
-	if err != nil {
-		return reconcile.Result{}, err
+	deploymentStatus := deployment.SyncObjectsToCluster(workspace, podAdditions, r.client, r.scheme)
+	if !deploymentStatus.Continue {
+		reqLogger.Info("Waiting on deployment to be ready")
+		return reconcile.Result{Requeue: deploymentStatus.Requeue}, deploymentStatus.Err
 	}
 
 	reqLogger.Info("Everything ready :)")

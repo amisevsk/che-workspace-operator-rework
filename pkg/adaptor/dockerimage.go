@@ -65,6 +65,7 @@ func getContainerFromDevfile(devfileComponent v1alpha1.ComponentSpec) (corev1.Co
 		Env:          env,
 		Resources:    containerResources,
 		VolumeMounts: adaptVolumesMountsFromDevfile(devfileComponent.Volumes),
+		ImagePullPolicy: corev1.PullAlways,
 	}
 
 	containerDescription := v1alpha1.ContainerDescription{

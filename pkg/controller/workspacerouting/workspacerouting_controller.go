@@ -2,6 +2,7 @@ package workspacerouting
 
 import (
 	"context"
+	"fmt"
 	"github.com/che-incubator/che-workspace-operator/internal/cluster"
 	workspacev1alpha1 "github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
 	routeV1 "github.com/openshift/api/route/v1"
@@ -116,20 +117,22 @@ func (r *ReconcileWorkspaceRouting) Reconcile(request reconcile.Request) (reconc
 	}
 
 	services, ingresses, _ := GetSpecObjects(instance.Spec, instance.Namespace)
-	for _, service := range services {
-		controllerutil.SetControllerReference(instance, &service, r.scheme)
+	for idx := range services {
+		controllerutil.SetControllerReference(instance, &services[idx], r.scheme)
 	}
-	for _, ingress := range ingresses {
-		controllerutil.SetControllerReference(instance, &ingress, r.scheme)
+	for idx := range ingresses {
+		controllerutil.SetControllerReference(instance, &ingresses[idx], r.scheme)
 	}
 
 	servicesInSync, err := r.syncServices(instance, services)
 	if err != nil || !servicesInSync {
+		reqLogger.Info(fmt.Sprintf("Services not in sync: %s", err))
 		return reconcile.Result{Requeue: true}, err
 	}
 
 	ingressesInSync, err := r.syncIngresses(instance, ingresses)
 	if err != nil || !ingressesInSync {
+		reqLogger.Info(fmt.Sprintf("Ingresses not in sync: %s", err))
 		return reconcile.Result{Requeue: true}, err
 	}
 

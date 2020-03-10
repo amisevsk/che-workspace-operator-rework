@@ -6,14 +6,13 @@ import (
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var ingressDiffOpts = cmp.Options{
-	cmpopts.IgnoreFields(corev1.Service{}, "TypeMeta", "ObjectMeta", "Status"),
+	cmpopts.IgnoreFields(v1beta1.Ingress{}, "TypeMeta", "ObjectMeta", "Status"),
 }
 
 func (r *ReconcileWorkspaceRouting) syncIngresses(routing *v1alpha1.WorkspaceRouting, specIngresses []v1beta1.Ingress) (ok bool, err error) {
@@ -36,7 +35,8 @@ func (r *ReconcileWorkspaceRouting) syncIngresses(routing *v1alpha1.WorkspaceRou
 	for _, specIngress := range specIngresses {
 		if contains, idx := listContainsIngressByName(specIngress, clusterIngresses); contains {
 			clusterService := clusterIngresses[idx]
-			if !cmp.Equal(specIngress, clusterService) {
+			if !cmp.Equal(specIngress, clusterService, ingressDiffOpts) {
+				fmt.Printf("\n\n%s\n\n", cmp.Diff(specIngress, clusterIngresses, ingressDiffOpts))
 				// Update service's spec
 				clusterService.Spec = specIngress.Spec
 				err := r.client.Update(context.TODO(), &clusterService)

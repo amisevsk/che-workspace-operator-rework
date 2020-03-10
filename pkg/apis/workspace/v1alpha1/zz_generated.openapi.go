@@ -337,7 +337,7 @@ func schema_pkg_apis_workspace_v1alpha1_WorkspaceRoutingStatus(ref common.Refere
 						},
 					},
 				},
-				Required: []string{"exposedEndpoints", "ready"},
+				Required: []string{"ready"},
 			},
 		},
 		Dependencies: []string{

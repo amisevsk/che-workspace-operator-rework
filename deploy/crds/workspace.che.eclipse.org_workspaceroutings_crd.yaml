@@ -3132,7 +3132,6 @@ spec:
             ready:
               type: boolean
           required:
-          - exposedEndpoints
           - ready
           type: object
       type: object

@@ -13,6 +13,8 @@ import (
 
 var serviceDiffOpts = cmp.Options{
 	cmpopts.IgnoreFields(corev1.Service{}, "TypeMeta", "ObjectMeta", "Status"),
+	cmpopts.IgnoreFields(corev1.ServiceSpec{}, "ClusterIP", "SessionAffinity"),
+	cmpopts.IgnoreFields(corev1.ServicePort{}, "TargetPort"),
 }
 
 func (r *ReconcileWorkspaceRouting) syncServices(routing *v1alpha1.WorkspaceRouting, specServices []corev1.Service) (ok bool, err error) {
@@ -35,9 +37,8 @@ func (r *ReconcileWorkspaceRouting) syncServices(routing *v1alpha1.WorkspaceRout
 	for _, specService := range specServices {
 		if contains, idx := listContainsByName(specService, clusterServices); contains {
 			clusterService := clusterServices[idx]
-			if !cmp.Equal(specService, clusterService) {
-				// Update service's spec
-				clusterService.Spec = specService.Spec
+			if !cmp.Equal(specService, clusterService, serviceDiffOpts) {
+				r.client.Patch(context.TODO(), &clusterService, client.MergeFrom(&specService))
 				err := r.client.Update(context.TODO(), &clusterService)
 				if err != nil {
 					return false, err

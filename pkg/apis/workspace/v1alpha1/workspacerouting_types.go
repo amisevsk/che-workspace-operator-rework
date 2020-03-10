@@ -19,7 +19,7 @@ type WorkspaceRoutingSpec struct {
 // +k8s:openapi-gen=true
 type WorkspaceRoutingStatus struct {
 	PodAdditions     *PodAdditions                `json:"podAdditions,omitempty"`
-	ExposedEndpoints map[string][]ExposedEndpoint `json:"exposedEndpoints"`
+	ExposedEndpoints map[string][]ExposedEndpoint `json:"exposedEndpoints,omitempty"`
 	Ready            bool                         `json:"ready"`
 }
 
