@@ -10,9 +10,3 @@ type PodAdditions struct {
 	Volumes        []v1.Volume               `json:"volumes,omitempty"`
 	PullSecrets    []v1.LocalObjectReference `json:"pullSecrets,omitempty"`
 }
-
-type WorkspaceRoutingClass string
-const (
-	WorkspaceRoutingDefault WorkspaceRoutingClass = ""
-	WorkspaceRoutingOpenShiftOauth WorkspaceRoutingClass = "openshift-oauth"
-)

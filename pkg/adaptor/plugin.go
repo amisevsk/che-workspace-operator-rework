@@ -2,9 +2,7 @@ package adaptor
 
 import (
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
-	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/config"
-	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/model"
-	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/server"
+	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	metadataBroker "github.com/eclipse/che-plugin-broker/brokers/metadata"
 	brokerModel "github.com/eclipse/che-plugin-broker/model"
 	"github.com/eclipse/che-plugin-broker/utils"
@@ -57,6 +55,7 @@ func adaptChePluginToComponent(plugin brokerModel.ChePlugin) (v1alpha1.Component
 		}
 		// TODO: Use aliases to set names?
 	}
+	component.PodAdditions.Containers = append(component.PodAdditions.Containers, containers...)
 
 	return component, nil
 }
@@ -124,8 +123,8 @@ func convertPluginContainer(brokerContainer brokerModel.Container, pluginID stri
 
 	containerDescription := v1alpha1.ContainerDescription{
 		Attributes: map[string]string{
-			server.CONTAINER_SOURCE_ATTRIBUTE: server.TOOL_CONTAINER_SOURCE,
-			server.PLUGIN_MACHINE_ATTRIBUTE:   pluginID,
+			config.RestApisContainerSourceAttribute: config.RestApisRecipeSourceToolAttribute,
+			config.RestApisPluginMachineAttribute:   pluginID,
 		}, // TODO
 		Ports: portInts,
 	}
@@ -145,8 +144,8 @@ func adaptVolumeMountsFromBroker(brokerContainer brokerModel.Container) []corev1
 	}
 	if brokerContainer.MountSources {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			MountPath: model.DefaultProjectsSourcesRoot,
-			Name:      model.DefaultPluginsVolumeName,
+			MountPath: config.DefaultProjectsSourcesRoot,
+			Name:      config.DefaultPluginsVolumeName,
 		})
 	}
 

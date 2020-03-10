@@ -1,11 +1,10 @@
-package components
+package provision
 
 import (
 	"context"
 	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/adaptor"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
-	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/common"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,7 +18,7 @@ import (
 var log = logf.Log.WithName("controller_workspace")
 
 type ComponentProvisioningStatus struct {
-	common.ProvisioningStatus
+	ProvisioningStatus
 	ComponentDescriptions []v1alpha1.ComponentDescription
 }
 
@@ -27,25 +26,25 @@ var componentDiffOpts = cmp.Options{
 	cmpopts.IgnoreFields(v1alpha1.Component{}, "TypeMeta", "ObjectMeta", "Status"),
 }
 
-func SyncObjectsToCluster(
+func SyncComponentsToCluster(
 		workspace *v1alpha1.Workspace, client runtimeClient.Client, scheme *runtime.Scheme) ComponentProvisioningStatus {
 	specComponents, err := getSpecComponents(workspace, scheme)
 	if err != nil {
 		return ComponentProvisioningStatus{
-			ProvisioningStatus: common.ProvisioningStatus{Err: err},
+			ProvisioningStatus: ProvisioningStatus{Err: err},
 		}
 	}
 
 	clusterComponents, err := getClusterComponents(workspace, client)
 	if err != nil {
 		return ComponentProvisioningStatus{
-			ProvisioningStatus: common.ProvisioningStatus{Err: err},
+			ProvisioningStatus: ProvisioningStatus{Err: err},
 		}
 	}
 
 	toCreate, toUpdate, toDelete := sortComponents(specComponents, clusterComponents)
 	if len(toCreate) == 0 && len(toUpdate) == 0 && len(toDelete) == 0 {
-		return checkReadiness(clusterComponents)
+		return checkComponentsReadiness(clusterComponents)
 	}
 
 	for _, component := range toCreate {
@@ -53,7 +52,7 @@ func SyncObjectsToCluster(
 		log.Info("Creating component", "component", component.Name)
 		if err != nil {
 			return ComponentProvisioningStatus{
-				ProvisioningStatus: common.ProvisioningStatus{Err: err},
+				ProvisioningStatus: ProvisioningStatus{Err: err},
 			}
 		}
 	}
@@ -63,7 +62,7 @@ func SyncObjectsToCluster(
 		err := client.Update(context.TODO(), &component)
 		if err != nil {
 			return ComponentProvisioningStatus{
-				ProvisioningStatus: common.ProvisioningStatus{Err: err},
+				ProvisioningStatus: ProvisioningStatus{Err: err},
 			}
 		}
 	}
@@ -73,31 +72,31 @@ func SyncObjectsToCluster(
 		err := client.Delete(context.TODO(), &component)
 		if err != nil {
 			return ComponentProvisioningStatus{
-				ProvisioningStatus: common.ProvisioningStatus{Err: err},
+				ProvisioningStatus: ProvisioningStatus{Err: err},
 			}
 		}
 	}
 
 	return ComponentProvisioningStatus{
-		ProvisioningStatus: common.ProvisioningStatus{
+		ProvisioningStatus: ProvisioningStatus{
 			Continue: false,
 			Requeue:  true,
 		},
 	}
 }
 
-func checkReadiness(components []v1alpha1.Component) ComponentProvisioningStatus {
+func checkComponentsReadiness(components []v1alpha1.Component) ComponentProvisioningStatus {
 	var componentDescriptions []v1alpha1.ComponentDescription
 	for _, component := range components {
 		if !component.Status.Ready {
 			return ComponentProvisioningStatus{
-				ProvisioningStatus: common.ProvisioningStatus{},
+				ProvisioningStatus: ProvisioningStatus{},
 			}
 		}
 		componentDescriptions = append(componentDescriptions, component.Status.ComponentDescriptions...)
 	}
 	return ComponentProvisioningStatus{
-		ProvisioningStatus: common.ProvisioningStatus{
+		ProvisioningStatus: ProvisioningStatus{
 			Continue: true,
 		},
 		ComponentDescriptions: componentDescriptions,
@@ -136,8 +135,14 @@ func getSpecComponents(workspace *v1alpha1.Workspace, scheme *runtime.Scheme) ([
 			Components:  pluginComponents,
 		},
 	}
-	controllerutil.SetControllerReference(workspace, &dockerResolver, scheme)
-	controllerutil.SetControllerReference(workspace, &pluginResolver, scheme)
+	err = controllerutil.SetControllerReference(workspace, &dockerResolver, scheme)
+	if err != nil {
+		return nil, err
+	}
+	err = controllerutil.SetControllerReference(workspace, &pluginResolver, scheme)
+	if err != nil {
+		return nil, err
+	}
 
 	return []v1alpha1.Component{pluginResolver, dockerResolver}, nil
 }

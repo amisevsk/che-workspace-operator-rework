@@ -7,6 +7,7 @@ require github.com/eclipse/che-plugin-broker v3.1.1-0.20200207223144-b20597f15e4
 
 require (
 	github.com/eclipse/che-go-jsonrpc v0.0.0-20181205102516-87cdb8da2597 // indirect
+	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.0
 	github.com/google/go-cmp v0.3.0
 	github.com/google/uuid v1.0.0

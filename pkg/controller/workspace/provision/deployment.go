@@ -1,12 +1,11 @@
-package deployment
+package provision
 
 import (
 	"context"
 	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
-	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/common"
-	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/config"
-	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/model"
+	"github.com/che-incubator/che-workspace-operator/pkg/config"
+	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/env"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	appsv1 "k8s.io/api/apps/v1"
@@ -21,19 +20,19 @@ import (
 )
 
 type DeploymentProvisioningStatus struct {
-	common.ProvisioningStatus
+	ProvisioningStatus
 	Status string
 }
 
 var deploymentDiffOpts = cmp.Options{
 	cmpopts.IgnoreFields(appsv1.Deployment{}, "TypeMeta", "ObjectMeta", "Status"),
 	cmpopts.IgnoreFields(appsv1.DeploymentSpec{}, "RevisionHistoryLimit", "ProgressDeadlineSeconds"),
-	cmpopts.IgnoreFields(corev1.PodSpec{}, "DNSPolicy", "SchedulerName"),
+	cmpopts.IgnoreFields(corev1.PodSpec{}, "DNSPolicy", "SchedulerName", "DeprecatedServiceAccount"),
 	// TODO: Should we really be ignoring pullPolicy?
 	cmpopts.IgnoreFields(corev1.Container{}, "TerminationMessagePath", "TerminationMessagePolicy", "ImagePullPolicy"),
 }
 
-func SyncObjectsToCluster(
+func SyncDeploymentToCluster(
 		workspace *v1alpha1.Workspace,
 		podAdditions []v1alpha1.PodAdditions,
 		client runtimeClient.Client,
@@ -42,14 +41,14 @@ func SyncObjectsToCluster(
 	specDeployment, err := getSpecDeployment(workspace, podAdditions, scheme)
 	if err != nil {
 		return DeploymentProvisioningStatus{
-			ProvisioningStatus: common.ProvisioningStatus{Err: err},
+			ProvisioningStatus: ProvisioningStatus{Err: err},
 		}
 	}
 
 	clusterDeployment, err := getClusterDeployment(specDeployment.Name, workspace.Namespace, client)
 	if err != nil {
 		return DeploymentProvisioningStatus{
-			ProvisioningStatus: common.ProvisioningStatus{Err: err},
+			ProvisioningStatus: ProvisioningStatus{Err: err},
 		}
 	}
 
@@ -57,7 +56,7 @@ func SyncObjectsToCluster(
 		fmt.Printf("Creating deployment...\n")
 		err := client.Create(context.TODO(), specDeployment)
 		return DeploymentProvisioningStatus{
-			ProvisioningStatus: common.ProvisioningStatus{
+			ProvisioningStatus: ProvisioningStatus{
 				Requeue: true,
 				Err:     err,
 			},
@@ -67,17 +66,17 @@ func SyncObjectsToCluster(
 	if !cmp.Equal(specDeployment, clusterDeployment, deploymentDiffOpts) {
 		fmt.Printf("Updating deployment...\n")
 		fmt.Printf("\n\n%s\n\n", cmp.Diff(specDeployment, clusterDeployment, deploymentDiffOpts))
-		//clusterDeployment.Spec = specDeployment.Spec
-		err := client.Patch(context.TODO(), clusterDeployment, runtimeClient.MergeFrom(specDeployment))
+		clusterDeployment.Spec = specDeployment.Spec
+		err := client.Update(context.TODO(), clusterDeployment)
 		return DeploymentProvisioningStatus{
-			ProvisioningStatus: common.ProvisioningStatus{Requeue: true, Err: err},
+			ProvisioningStatus: ProvisioningStatus{Requeue: true, Err: err},
 		}
 	}
 
 	deploymentReady := checkDeploymentStatus(clusterDeployment)
 	if deploymentReady {
 		return DeploymentProvisioningStatus{
-			ProvisioningStatus: common.ProvisioningStatus{
+			ProvisioningStatus: ProvisioningStatus{
 				Continue: true,
 			},
 			Status: "Ready", // TODO
@@ -88,8 +87,9 @@ func SyncObjectsToCluster(
 }
 
 func checkDeploymentStatus(deployment *appsv1.Deployment) (ready bool) {
+	// TODO: available doesn't mean what you might think
 	for _, condition := range deployment.Status.Conditions {
-		if condition.Type == appsv1.DeploymentAvailable && condition.Status == corev1.ConditionTrue {
+		if condition.Type != appsv1.DeploymentAvailable || condition.Status != corev1.ConditionTrue {
 			return true
 		}
 	}
@@ -112,13 +112,20 @@ func getSpecDeployment(workspace *v1alpha1.Workspace, podAdditionsList []v1alpha
 		return nil, err
 	}
 
-	// TODO: Add che-rest-apis
+	commonEnv := env.CommonEnvironmentVariables(workspace.Name, workspace.Status.WorkspaceId, workspace.Namespace)
+	for idx, _ := range podAdditions.Containers {
+		podAdditions.Containers[idx].Env = append(podAdditions.Containers[idx].Env, commonEnv...)
+	}
+	for idx, _ := range podAdditions.InitContainers {
+		podAdditions.InitContainers[idx].Env = append(podAdditions.InitContainers[idx].Env, commonEnv...)
+	}
+
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      workspace.Status.WorkspaceId,
 			Namespace: workspace.Namespace,
 			Labels: map[string]string{
-				model.WorkspaceIDLabel: workspace.Status.WorkspaceId,
+				config.WorkspaceIDLabel: workspace.Status.WorkspaceId,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -126,6 +133,7 @@ func getSpecDeployment(workspace *v1alpha1.Workspace, podAdditionsList []v1alpha
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app": workspace.Status.WorkspaceId, // TODO
+					config.WorkspaceIDLabel: workspace.Status.WorkspaceId,
 				},
 			},
 			Strategy: appsv1.DeploymentStrategy{
@@ -140,7 +148,12 @@ func getSpecDeployment(workspace *v1alpha1.Workspace, podAdditionsList []v1alpha
 					Name:      workspace.Status.WorkspaceId,
 					Namespace: workspace.Namespace,
 					Labels: map[string]string{
-						"app": workspace.Status.WorkspaceId,
+						"app": workspace.Status.WorkspaceId, // TODO
+						// TODO: Copied in
+						"deployment":         workspace.Status.WorkspaceId,
+						config.CheOriginalNameLabel: config.CheOriginalName,
+						config.WorkspaceIDLabel:     workspace.Status.WorkspaceId,
+						config.WorkspaceNameLabel:   workspace.Name,
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -154,7 +167,7 @@ func getSpecDeployment(workspace *v1alpha1.Workspace, podAdditionsList []v1alpha
 						RunAsUser: user,
 						FSGroup:   user,
 					},
-					ServiceAccountName:           "",
+					ServiceAccountName:           "workspace-sa",
 					AutomountServiceAccountToken: nil,
 				},
 			},
@@ -202,7 +215,7 @@ func mergePodAdditions(toMerge []v1alpha1.PodAdditions) (*v1alpha1.PodAdditions,
 		}
 		for _, container := range additions.Containers {
 			if containerNames[container.Name] {
-				return nil, fmt.Errorf("Duplicate containers in the workspace definition: %s", container.Name)
+				return nil, fmt.Errorf("duplicate containers in the workspace definition: %s", container.Name)
 			}
 			containerNames[container.Name] = true
 			podAdditions.Containers = append(podAdditions.Containers, container)
@@ -210,7 +223,7 @@ func mergePodAdditions(toMerge []v1alpha1.PodAdditions) (*v1alpha1.PodAdditions,
 
 		for _, container := range additions.InitContainers {
 			if initContainerNames[container.Name] {
-				return nil, fmt.Errorf("Duplicate init containers in the workspace definition: %s", container.Name)
+				return nil, fmt.Errorf("duplicate init containers in the workspace definition: %s", container.Name)
 			}
 			initContainerNames[container.Name] = true
 			podAdditions.InitContainers = append(podAdditions.InitContainers, container)
@@ -218,7 +231,7 @@ func mergePodAdditions(toMerge []v1alpha1.PodAdditions) (*v1alpha1.PodAdditions,
 
 		for _, volume := range additions.Volumes {
 			if volumeNames[volume.Name] {
-				return nil, fmt.Errorf("Duplicate volumes in the workspace definition: %s", volume.Name)
+				return nil, fmt.Errorf("duplicate volumes in the workspace definition: %s", volume.Name)
 			}
 			volumeNames[volume.Name] = true
 			podAdditions.Volumes = append(podAdditions.Volumes, volume)

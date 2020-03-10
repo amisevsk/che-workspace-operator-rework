@@ -1,11 +1,10 @@
-package routing
+package provision
 
 import (
 	"context"
 	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
-	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/common"
-	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/config"
+	config2 "github.com/che-incubator/che-workspace-operator/pkg/config"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -17,7 +16,7 @@ import (
 )
 
 type RoutingProvisioningStatus struct {
-	common.ProvisioningStatus
+	ProvisioningStatus
 	PodAdditions     *v1alpha1.PodAdditions
 	ExposedEndpoints map[string][]v1alpha1.ExposedEndpoint
 }
@@ -26,7 +25,7 @@ var routingDiffOpts = cmp.Options{
 	cmpopts.IgnoreFields(v1alpha1.WorkspaceRouting{}, "TypeMeta", "ObjectMeta", "Status"),
 }
 
-func SyncObjectsToCluster(
+func SyncRoutingToCluster(
 		workspace *v1alpha1.Workspace,
 		components []v1alpha1.ComponentDescription,
 		client runtimeClient.Client,
@@ -35,21 +34,21 @@ func SyncObjectsToCluster(
 	specRouting, err := getSpecRouting(workspace, components, scheme)
 	if err != nil {
 		return RoutingProvisioningStatus{
-			ProvisioningStatus: common.ProvisioningStatus{Err: err},
+			ProvisioningStatus: ProvisioningStatus{Err: err},
 		}
 	}
 
 	clusterRouting, err := getClusterRouting(specRouting.Name, specRouting.Namespace, client)
 	if err != nil {
 		return RoutingProvisioningStatus{
-			ProvisioningStatus: common.ProvisioningStatus{Err: err},
+			ProvisioningStatus: ProvisioningStatus{Err: err},
 		}
 	}
 
 	if clusterRouting == nil {
 		err := client.Create(context.TODO(), specRouting)
 		return RoutingProvisioningStatus{
-			ProvisioningStatus: common.ProvisioningStatus{Requeue: true, Err: err},
+			ProvisioningStatus: ProvisioningStatus{Requeue: true, Err: err},
 		}
 	}
 
@@ -57,13 +56,13 @@ func SyncObjectsToCluster(
 		clusterRouting.Spec = specRouting.Spec
 		err := client.Update(context.TODO(), clusterRouting)
 		return RoutingProvisioningStatus{
-			ProvisioningStatus: common.ProvisioningStatus{Requeue: true, Err: err},
+			ProvisioningStatus: ProvisioningStatus{Requeue: true, Err: err},
 		}
 	}
 
 	if !clusterRouting.Status.Ready {
 		return RoutingProvisioningStatus{
-			ProvisioningStatus: common.ProvisioningStatus{
+			ProvisioningStatus: ProvisioningStatus{
 				Continue:              false,
 				Requeue:               false,
 			},
@@ -71,7 +70,7 @@ func SyncObjectsToCluster(
 	}
 
 	return RoutingProvisioningStatus{
-		ProvisioningStatus: common.ProvisioningStatus{
+		ProvisioningStatus: ProvisioningStatus{
 			Continue:              clusterRouting.Status.Ready,
 		},
 		PodAdditions:       clusterRouting.Status.PodAdditions,
@@ -97,7 +96,7 @@ func getSpecRouting(
 		Spec: v1alpha1.WorkspaceRoutingSpec{
 			WorkspaceId:         workspace.Status.WorkspaceId,
 			RoutingClass:        workspace.Spec.RoutingClass,
-			IngressGlobalDomain: config.ControllerCfg.GetIngressGlobalDomain(),
+			IngressGlobalDomain: config2.ControllerCfg.GetIngressGlobalDomain(),
 			Endpoints:           endpoints,
 			PodSelector: map[string]string{
 				"app": workspace.Status.WorkspaceId,

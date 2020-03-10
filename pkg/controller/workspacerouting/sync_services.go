@@ -38,8 +38,13 @@ func (r *ReconcileWorkspaceRouting) syncServices(routing *v1alpha1.WorkspaceRout
 		if contains, idx := listContainsByName(specService, clusterServices); contains {
 			clusterService := clusterServices[idx]
 			if !cmp.Equal(specService, clusterService, serviceDiffOpts) {
-				r.client.Patch(context.TODO(), &clusterService, client.MergeFrom(&specService))
-				err := r.client.Update(context.TODO(), &clusterService)
+				fmt.Printf("\n\n%s\n\n", cmp.Diff(specService, clusterService, serviceDiffOpts))
+
+				// TODO:
+				// Note: jsonpatch appears to ignore array fields, meaning that this is a no-op if ServicePorts are changed.
+				// We also cannot use client.Update, as the spec contains ClusterIP which cannot be modified.
+				patch := client.MergeFrom(&specService)
+				err := r.client.Patch(context.TODO(), &clusterService, patch)
 				if err != nil {
 					return false, err
 				}

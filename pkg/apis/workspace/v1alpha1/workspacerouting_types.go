@@ -15,6 +15,12 @@ type WorkspaceRoutingSpec struct {
 	PodSelector map[string]string `json:"podSelector"'`
 }
 
+type WorkspaceRoutingClass string
+const (
+	WorkspaceRoutingDefault WorkspaceRoutingClass = ""
+	WorkspaceRoutingOpenShiftOauth WorkspaceRoutingClass = "openshift-oauth"
+)
+
 // WorkspaceRoutingStatus defines the observed state of WorkspaceRouting
 // +k8s:openapi-gen=true
 type WorkspaceRoutingStatus struct {

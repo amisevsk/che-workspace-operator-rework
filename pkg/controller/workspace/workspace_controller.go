@@ -4,15 +4,15 @@ import (
 	"context"
 	"fmt"
 	workspacev1alpha1 "github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
-	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/components"
-	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/config"
-	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/deployment"
-	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/routing"
+	"github.com/che-incubator/che-workspace-operator/pkg/config"
+	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/prerequisites"
+	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/provision"
 	"github.com/google/uuid"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	origLog "log"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -33,12 +33,12 @@ func Add(mgr manager.Manager) error {
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager) *ReconcileWorkspace {
 	return &ReconcileWorkspace{client: mgr.GetClient(), scheme: mgr.GetScheme()}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func add(mgr manager.Manager, r *ReconcileWorkspace) error {
 	// Create a new controller
 	c, err := controller.New("workspace-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
@@ -86,6 +86,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		OwnerType:    &workspacev1alpha1.Workspace{},
 	})
 
+	origLog.SetOutput(r)
+
 	return nil
 }
 
@@ -98,6 +100,12 @@ type ReconcileWorkspace struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
+}
+
+// Enable redirecting standard log output to the controller's log
+func (r *ReconcileWorkspace) Write(p []byte) (n int, err error) {
+	log.Info(string(p))
+	return len(p), nil
 }
 
 // Reconcile reads that state of the cluster for a Workspace object and makes changes based on the state read
@@ -120,6 +128,11 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
+	err = prerequisites.CheckPrerequisites(workspace, r.client, reqLogger)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// Ensure workspaceID is set.
 	if workspace.Status.WorkspaceId == "" {
 		workspaceId, err := getWorkspaceId(workspace)
@@ -130,22 +143,25 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	// Step one: Create components, and wait for their states to be ready.
-	componentsStatus := components.SyncObjectsToCluster(workspace, r.client, r.scheme)
+	componentsStatus := provision.SyncComponentsToCluster(workspace, r.client, r.scheme)
 	if !componentsStatus.Continue {
 		reqLogger.Info("Waiting on components to be ready")
 		return reconcile.Result{Requeue: componentsStatus.Requeue}, componentsStatus.Err
 	}
-
 	componentDescriptions := componentsStatus.ComponentDescriptions
 
-	routingStatus := routing.SyncObjectsToCluster(workspace, componentDescriptions, r.client, r.scheme)
+	cheRestApisComponent := getCheRestApisComponent(workspace.Name, workspace.Status.WorkspaceId, workspace.Namespace)
+	componentDescriptions = append(componentDescriptions, cheRestApisComponent)
+
+	// Step two: Create routing, and wait for routing to be ready
+	routingStatus := provision.SyncRoutingToCluster(workspace, componentDescriptions, r.client, r.scheme)
 	if !routingStatus.Continue {
 		reqLogger.Info("Waiting on routing to be ready")
 		return reconcile.Result{Requeue: routingStatus.Requeue}, routingStatus.Err
 	}
 
+	// Step three: Collect all workspace deployment contributions
 	routingPodAdditions := routingStatus.PodAdditions
-
 	var podAdditions []workspacev1alpha1.PodAdditions
 	for _, componentDesc := range componentDescriptions {
 		podAdditions = append(podAdditions, componentDesc.PodAdditions)
@@ -154,7 +170,8 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 		podAdditions = append(podAdditions, *routingPodAdditions)
 	}
 
-	deploymentStatus := deployment.SyncObjectsToCluster(workspace, podAdditions, r.client, r.scheme)
+	// Step four: Create deployment and wait for it to be ready
+	deploymentStatus := provision.SyncDeploymentToCluster(workspace, podAdditions, r.client, r.scheme)
 	if !deploymentStatus.Continue {
 		reqLogger.Info("Waiting on deployment to be ready")
 		return reconcile.Result{Requeue: deploymentStatus.Requeue}, deploymentStatus.Err

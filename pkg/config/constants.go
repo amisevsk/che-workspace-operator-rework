@@ -10,12 +10,13 @@
 //   Red Hat, Inc. - initial API and implementation
 //
 
-package model
+package config
 
 import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// Internal constants
 const (
 	//default URL for accessing Che Rest API Emulator from Workspace containers
 	DefaultApiEndpoint = "http://localhost:9999/api"
@@ -51,4 +52,17 @@ const (
 	CheOriginalNameLabel = "che.original_name"
 
 	WorkspaceCreatorAnnotation = "org.eclipse.che.workspace/creator"
+)
+
+// Constants for che-rest-apis
+const(
+	// Attribute of Runtime Machine to mark source of the container.
+	RestApisContainerSourceAttribute = "source"
+	RestApisPluginMachineAttribute = "plugin"
+
+	// Mark containers applied to workspace with help recipe definition.
+	RestApisRecipeSourceContainerAttribute = "recipe"
+
+	// Mark containers created workspace api like tooling for user development.
+	RestApisRecipeSourceToolAttribute = "tool"
 )

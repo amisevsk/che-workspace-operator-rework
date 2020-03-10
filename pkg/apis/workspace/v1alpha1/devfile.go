@@ -55,16 +55,16 @@ type ProjectSourceSpec struct {
 }
 
 type ComponentSpec struct {
-	//common fields for all components types
+	//provision fields for all components types
 
 	Type  ComponentType `json:"type"`            // Describes type of the component, e.g. whether it is an plugin or editor or other type
 	Alias string        `json:"alias,omitempty"` // Describes the name of the component. Should be unique per component set.
 
-	//common fields for cheEditor&chePlugin types
+	//provision fields for cheEditor&chePlugin types
 
 	Id string `json:"id,omitempty"` // Describes the component FQN
 
-	//common fields for cheEditor&chePlugin&Kubernetes&OpenShift types
+	//provision fields for cheEditor&chePlugin&Kubernetes&OpenShift types
 
 	Reference string `json:"reference,omitempty"` // Describes location of Kubernetes list yaml file. Applicable only for 'kubernetes' and; 'openshift' type components
 
@@ -79,7 +79,7 @@ type ComponentSpec struct {
 	Command      []string   `json:"command,omitempty"`      // The command to run in the dockerimage component instead of the default one provided in the image. Defaults to null, meaning use whatever is defined in the image.
 	Args         []string   `json:"args,omitempty"`         // The arguments to supply to the command running the dockerimage component. The arguments are supplied either to the default command provided in the image or to the overridden command. Defaults to null, meaning use whatever is defined in the image.
 
-	//common fields for kubernetes&openshift types
+	//provision fields for kubernetes&openshift types
 
 	ReferenceContent *string           `json:"referenceContent,omitempty"` // Inlined content of a file specified in field 'local'
 	Selector         map[string]string `json:"selector,omitempty"`         // Describes the objects selector for the recipe type components. Allows to pick-up only selected; items from k8s/openshift list

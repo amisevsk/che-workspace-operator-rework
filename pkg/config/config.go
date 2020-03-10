@@ -16,7 +16,6 @@ import (
 	"context"
 	"errors"
 	"github.com/che-incubator/che-workspace-operator/internal/cluster"
-	"github.com/che-incubator/che-workspace-operator/pkg/controller/registry"
 	"os"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
@@ -66,8 +65,9 @@ func (wc *ControllerConfig) GetWorkspacePVCName() string {
 	return wc.GetPropertyOrDefault(workspacePVCName, defaultWorkspacePVCName)
 }
 
+// TODO
 func (wc *ControllerConfig) GetPluginRegistry() string {
-	return wc.GetPropertyOrDefault(pluginRegistryURL, registry.EmbeddedPluginRegistryUrl)
+	return wc.GetPropertyOrDefault(pluginRegistryURL, "")
 }
 
 func (wc *ControllerConfig) GetIngressGlobalDomain() string {

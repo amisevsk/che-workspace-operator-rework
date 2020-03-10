@@ -2,7 +2,7 @@ package adaptor
 
 import (
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
-	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/model"
+	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -55,6 +55,10 @@ func getContainerFromDevfile(devfileComponent v1alpha1.ComponentSpec) (corev1.Co
 			Value: devfileEnvVar.Value,
 		})
 	}
+	env = append(env, corev1.EnvVar{
+		Name:  "CHE_MACHINE_NAME",
+		Value: devfileComponent.Alias,
+	})
 
 	container := corev1.Container{
 		Name:         devfileComponent.Alias,
@@ -101,8 +105,8 @@ func adaptVolumesMountsFromDevfile(devfileVolumes []v1alpha1.Volume) []corev1.Vo
 		})
 	}
 	volumeMounts = append(volumeMounts, corev1.VolumeMount{
-		MountPath: model.DefaultProjectsSourcesRoot,
-		Name:      model.DefaultPluginsVolumeName,
+		MountPath: config.DefaultProjectsSourcesRoot,
+		Name:      config.DefaultPluginsVolumeName,
 	})
 
 	return volumeMounts
@@ -122,7 +126,7 @@ func adaptVolumesFromDevfile(devfileVolumes []v1alpha1.Volume) []corev1.Volume {
 	}
 
 	volumes = append(volumes, corev1.Volume{
-		Name:         model.DefaultPluginsVolumeName,
+		Name: config.DefaultPluginsVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			// TODO: temp workaround
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
