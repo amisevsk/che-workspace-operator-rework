@@ -96,7 +96,7 @@ func (r *ReconcileComponent) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	dockerimageComponents, err := adaptor.AdaptDockerimageComponents(dockerimageDevfileComponents)
+	dockerimageComponents, err := adaptor.AdaptDockerimageComponents(instance.Spec.WorkspaceId, dockerimageDevfileComponents)
 	if err != nil {
 		reqLogger.Info("Failed to adapt dockerimage components")
 		return reconcile.Result{}, err

@@ -31,7 +31,7 @@ func AdaptPluginComponents(workspaceId, namespace string, devfileComponents []v1
 	}
 
 	for _, plugin := range plugins {
-		component, err := adaptChePluginToComponent(plugin)
+		component, err := adaptChePluginToComponent(workspaceId, plugin)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -142,12 +142,15 @@ func getArtifactsBrokerComponent(workspaceId, namespace string, components []v1a
 	return brokerComponent, cm, nil
 }
 
-func adaptChePluginToComponent(plugin brokerModel.ChePlugin) (v1alpha1.ComponentDescription, error) {
+func adaptChePluginToComponent(workspaceId string, plugin brokerModel.ChePlugin) (v1alpha1.ComponentDescription, error) {
 	component := v1alpha1.ComponentDescription{}
 
 	var containers []corev1.Container
 	for _, pluginContainer := range plugin.Containers {
 		container, containerDescription, err := convertPluginContainer(pluginContainer, plugin.ID)
+		if pluginContainer.MountSources {
+			container.VolumeMounts = append(container.VolumeMounts, GetProjectSourcesVolumeMount(workspaceId))
+		}
 		if err != nil {
 			return component, err
 		}
@@ -156,7 +159,7 @@ func adaptChePluginToComponent(plugin brokerModel.ChePlugin) (v1alpha1.Component
 			Containers: map[string]v1alpha1.ContainerDescription{
 				container.Name: containerDescription,
 			},
-			ContributedRuntimeCommands: nil, // TODO Handle this where it makes sense
+			ContributedRuntimeCommands: nil, // TODO Hard to do since we *shouldn't* have to care about the whole devfile
 			Endpoints:                  createEndpointsFromPlugin(plugin),
 		}
 		// TODO: Use aliases to set names?

@@ -8,13 +8,13 @@ import (
 	"strings"
 )
 
-func AdaptDockerimageComponents(devfileComponents []v1alpha1.ComponentSpec) ([]v1alpha1.ComponentDescription, error) {
+func AdaptDockerimageComponents(workspaceId string, devfileComponents []v1alpha1.ComponentSpec) ([]v1alpha1.ComponentDescription, error) {
 	var components []v1alpha1.ComponentDescription
 	for _, devfileComponent := range devfileComponents {
 		if devfileComponent.Type != v1alpha1.Dockerimage {
 			return nil, fmt.Errorf("cannot adapt non-dockerfile type component %s in docker adaptor", devfileComponent.Alias)
 		}
-		component, err := adaptDockerimageComponent(devfileComponent)
+		component, err := adaptDockerimageComponent(workspaceId, devfileComponent)
 		if err != nil {
 			return nil, err
 		}
@@ -24,10 +24,13 @@ func AdaptDockerimageComponents(devfileComponents []v1alpha1.ComponentSpec) ([]v
 	return components, nil
 }
 
-func adaptDockerimageComponent(devfileComponent v1alpha1.ComponentSpec) (v1alpha1.ComponentDescription, error) {
+func adaptDockerimageComponent(workspaceId string, devfileComponent v1alpha1.ComponentSpec) (v1alpha1.ComponentDescription, error) {
 	component := v1alpha1.ComponentDescription{}
 
 	container, containerDescription, err := getContainerFromDevfile(devfileComponent)
+	if devfileComponent.MountSources {
+		container.VolumeMounts = append(container.VolumeMounts, GetProjectSourcesVolumeMount(workspaceId))
+	}
 	if err != nil {
 		return component, nil
 	}

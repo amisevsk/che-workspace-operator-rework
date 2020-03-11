@@ -162,16 +162,9 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 
 	// Step three: Collect all workspace deployment contributions
 	routingPodAdditions := routingStatus.PodAdditions
-	var podAdditions []workspacev1alpha1.PodAdditions
-	for _, componentDesc := range componentDescriptions {
-		podAdditions = append(podAdditions, componentDesc.PodAdditions)
-	}
-	if routingPodAdditions != nil {
-		podAdditions = append(podAdditions, *routingPodAdditions)
-	}
 
 	// Step four: Create deployment and wait for it to be ready
-	deploymentStatus := provision.SyncDeploymentToCluster(workspace, podAdditions, r.client, r.scheme)
+	deploymentStatus := provision.SyncDeploymentToCluster(workspace, componentDescriptions, routingPodAdditions, r.client, r.scheme)
 	if !deploymentStatus.Continue {
 		reqLogger.Info("Waiting on deployment to be ready")
 		return reconcile.Result{Requeue: deploymentStatus.Requeue}, deploymentStatus.Err

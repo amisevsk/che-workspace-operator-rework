@@ -8,6 +8,22 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
+
+
+func SortComponentsByType(components []v1alpha1.ComponentSpec) (dockerimage, plugin []v1alpha1.ComponentSpec, err error) {
+	for _, component := range components {
+		switch component.Type {
+		case v1alpha1.Dockerimage:
+			dockerimage = append(dockerimage, component)
+		case v1alpha1.CheEditor, v1alpha1.ChePlugin:
+			plugin = append(plugin, component)
+		default:
+			return nil, nil, fmt.Errorf("unsupported component type encountered: %s", component.Type)
+		}
+	}
+	return
+}
+
 func adaptResourcesFromString(memLimit string) (corev1.ResourceRequirements, error) {
 	if memLimit == "" {
 		memLimit = config.SidecarDefaultMemoryLimit
@@ -26,16 +42,15 @@ func adaptResourcesFromString(memLimit string) (corev1.ResourceRequirements, err
 	return resources, nil
 }
 
-func SortComponentsByType(components []v1alpha1.ComponentSpec) (dockerimage, plugin []v1alpha1.ComponentSpec, err error) {
-	for _, component := range components {
-		switch component.Type {
-		case v1alpha1.Dockerimage:
-			dockerimage = append(dockerimage, component)
-		case v1alpha1.CheEditor, v1alpha1.ChePlugin:
-			plugin = append(plugin, component)
-		default:
-			return nil, nil, fmt.Errorf("unsupported component type encountered: %s", component.Type)
-		}
+
+func GetProjectSourcesVolumeMount(workspaceId string) corev1.VolumeMount {
+	volumeName := config.ControllerCfg.GetWorkspacePVCName()
+
+	projectsVolumeMount := corev1.VolumeMount{
+		Name:             volumeName,
+		MountPath:        config.DefaultProjectsSourcesRoot,
+		SubPath:          workspaceId + config.DefaultProjectsSourcesRoot,
 	}
-	return
+
+	return projectsVolumeMount
 }
