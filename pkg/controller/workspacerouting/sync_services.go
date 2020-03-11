@@ -9,12 +9,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 var serviceDiffOpts = cmp.Options{
 	cmpopts.IgnoreFields(corev1.Service{}, "TypeMeta", "ObjectMeta", "Status"),
 	cmpopts.IgnoreFields(corev1.ServiceSpec{}, "ClusterIP", "SessionAffinity"),
 	cmpopts.IgnoreFields(corev1.ServicePort{}, "TargetPort"),
+	cmpopts.SortSlices(func(a, b corev1.ServicePort) bool {
+		return strings.Compare(a.Name, b.Name) > 0
+	}),
 }
 
 func (r *ReconcileWorkspaceRouting) syncServices(routing *v1alpha1.WorkspaceRouting, specServices []corev1.Service) (ok bool, err error) {

@@ -7,7 +7,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func SyncWorkspaceStatus(workspace *v1alpha1.Workspace, runtime v1alpha1.CheWorkspaceRuntime, client client.Client) ProvisioningStatus {
+func SyncWorkspaceStatus(workspace *v1alpha1.Workspace, runtime string, client client.Client) ProvisioningStatus {
 	if cmp.Equal(runtime, workspace.Status.AdditionalFields.Runtime) {
 		return ProvisioningStatus{
 			Continue: true,

@@ -34,7 +34,7 @@ type WorkspaceStatus struct {
 }
 
 type WorkspaceStatusAdditionalFields struct {
-	Runtime CheWorkspaceRuntime `json:"org.eclipse.che.workspace/runtime"`
+	Runtime string `json:"org.eclipse.che.workspace/runtime"`
 }
 
 // WorkspaceCondition contains details for the current condition of this workspace.

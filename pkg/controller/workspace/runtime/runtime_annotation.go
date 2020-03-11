@@ -1,17 +1,26 @@
 package runtime
 
-import "github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
+import (
+	"encoding/json"
+	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
+)
 
-func ConstructRuntimeAnnotation(components []v1alpha1.ComponentDescription) v1alpha1.CheWorkspaceRuntime {
+func ConstructRuntimeAnnotation(components []v1alpha1.ComponentDescription) (string, error) {
 	defaultEnv := "default"
 
 	machines := getMachinesAnnotation(components)
 
-	return v1alpha1.CheWorkspaceRuntime{
+	runtime := v1alpha1.CheWorkspaceRuntime{
 		ActiveEnv:    defaultEnv,
 		Commands:     nil, // TODO
 		Machines:     machines,
 	}
+
+	runtimeJSON, err := json.Marshal(runtime)
+	if err != nil {
+		return "", err
+	}
+	return string(runtimeJSON), nil
 }
 
 func getMachinesAnnotation(components []v1alpha1.ComponentDescription) map[string]v1alpha1.CheWorkspaceMachine {

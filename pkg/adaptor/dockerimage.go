@@ -83,7 +83,7 @@ func getContainerFromDevfile(devfileComponent v1alpha1.ComponentSpec) (corev1.Co
 
 	containerDescription := v1alpha1.ContainerDescription{
 		Attributes: map[string]string{
-			config.RestApisContainerSourceAttribute: config.RestApisContainerSourceAttribute,
+			config.RestApisContainerSourceAttribute: config.RestApisRecipeSourceContainerAttribute,
 		},
 		Ports:      endpointInts,
 	}
