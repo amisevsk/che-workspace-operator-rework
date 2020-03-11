@@ -7,6 +7,7 @@ import (
 	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/prerequisites"
 	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/provision"
+	wsRuntime "github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/runtime"
 	"github.com/google/uuid"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	appsv1 "k8s.io/api/apps/v1"
@@ -160,6 +161,14 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{Requeue: routingStatus.Requeue}, routingStatus.Err
 	}
 
+	// Step 2.5 setup runtime annotation (TODO: use configmap)
+	cheRuntime := wsRuntime.ConstructRuntimeAnnotation(componentDescriptions)
+	workspaceStatus := provision.SyncWorkspaceStatus(workspace, cheRuntime, r.client)
+	if !workspaceStatus.Continue {
+		reqLogger.Info("Updating workspace status")
+		return reconcile.Result{Requeue: workspaceStatus.Requeue}, workspaceStatus.Err
+	}
+
 	// Step three: Collect all workspace deployment contributions
 	routingPodAdditions := routingStatus.PodAdditions
 
@@ -169,8 +178,6 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 		reqLogger.Info("Waiting on deployment to be ready")
 		return reconcile.Result{Requeue: deploymentStatus.Requeue}, deploymentStatus.Err
 	}
-
-
 
 	reqLogger.Info("Everything ready :)")
 	return reconcile.Result{}, nil
