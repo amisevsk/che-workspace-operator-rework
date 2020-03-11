@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
+	"github.com/che-incubator/che-workspace-operator/pkg/common"
 	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	metadataBroker "github.com/eclipse/che-plugin-broker/brokers/metadata"
 	brokerModel "github.com/eclipse/che-plugin-broker/model"
@@ -14,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 )
-
 
 func AdaptPluginComponents(workspaceId, namespace string, devfileComponents []v1alpha1.ComponentSpec) ([]v1alpha1.ComponentDescription, *corev1.ConfigMap, error) {
 	var components []v1alpha1.ComponentDescription
@@ -66,7 +66,7 @@ func getArtifactsBrokerComponent(workspaceId, namespace string, components []v1a
 		fqns = append(fqns, getPluginFQN(component))
 	}
 	cmData, err := json.Marshal(fqns)
-	if err != nil{
+	if err != nil {
 		return nil, nil, err
 	}
 	cm := &corev1.ConfigMap{
@@ -77,10 +77,12 @@ func getArtifactsBrokerComponent(workspaceId, namespace string, components []v1a
 				config.WorkspaceIDLabel: workspaceId,
 			},
 		},
-		Data:       map[string]string{
+		Data: map[string]string{
 			configMapDataName: string(cmData),
 		},
 	}
+
+	cmMode := int32(0644)
 	// Define volumes used by plugin broker
 	cmVolume := corev1.Volume{
 		Name: configMapVolumeName,
@@ -89,6 +91,7 @@ func getArtifactsBrokerComponent(workspaceId, namespace string, components []v1a
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: configMapName,
 				},
+				DefaultMode: &cmMode,
 			},
 		},
 	}
@@ -132,10 +135,10 @@ func getArtifactsBrokerComponent(workspaceId, namespace string, components []v1a
 	}
 
 	brokerComponent := &v1alpha1.ComponentDescription{
-		Name:              "artifacts-broker",
-		PodAdditions:      v1alpha1.PodAdditions{
+		Name: "artifacts-broker",
+		PodAdditions: v1alpha1.PodAdditions{
 			InitContainers: []corev1.Container{initContainer},
-			Volumes: []corev1.Volume{cmVolume},
+			Volumes:        []corev1.Volume{cmVolume},
 		},
 	}
 
@@ -147,10 +150,7 @@ func adaptChePluginToComponent(workspaceId string, plugin brokerModel.ChePlugin)
 
 	var containers []corev1.Container
 	for _, pluginContainer := range plugin.Containers {
-		container, containerDescription, err := convertPluginContainer(pluginContainer, plugin.ID)
-		if pluginContainer.MountSources {
-			container.VolumeMounts = append(container.VolumeMounts, GetProjectSourcesVolumeMount(workspaceId))
-		}
+		container, containerDescription, err := convertPluginContainer(workspaceId, plugin.ID, pluginContainer)
 		if err != nil {
 			return component, err
 		}
@@ -164,6 +164,14 @@ func adaptChePluginToComponent(workspaceId string, plugin brokerModel.ChePlugin)
 		}
 		// TODO: Use aliases to set names?
 	}
+	for _, pluginInitContainer := range plugin.InitContainers {
+		container, _, err := convertPluginContainer(workspaceId, plugin.ID, pluginInitContainer)
+		if err != nil {
+			return component, err
+		}
+		component.PodAdditions.InitContainers = append(component.PodAdditions.InitContainers, container)
+	}
+
 	component.PodAdditions.Containers = append(component.PodAdditions.Containers, containers...)
 
 	return component, nil
@@ -181,7 +189,7 @@ func createEndpointsFromPlugin(plugin brokerModel.ChePlugin) []v1alpha1.Endpoint
 			attributes[v1alpha1.EndpointAttribute(key)] = val
 		}
 		endpoints = append(endpoints, v1alpha1.Endpoint{
-			Name:       pluginEndpoint.Name,
+			Name:       common.EndpointName(pluginEndpoint.Name),
 			Port:       int64(pluginEndpoint.TargetPort),
 			Attributes: attributes,
 		})
@@ -190,7 +198,7 @@ func createEndpointsFromPlugin(plugin brokerModel.ChePlugin) []v1alpha1.Endpoint
 	return endpoints
 }
 
-func convertPluginContainer(brokerContainer brokerModel.Container, pluginID string) (corev1.Container, v1alpha1.ContainerDescription, error) {
+func convertPluginContainer(workspaceId, pluginID string, brokerContainer brokerModel.Container) (corev1.Container, v1alpha1.ContainerDescription, error) {
 	memorylimit := brokerContainer.MemoryLimit
 	if memorylimit == "" {
 		memorylimit = config.SidecarDefaultMemoryLimit
@@ -213,9 +221,9 @@ func convertPluginContainer(brokerContainer brokerModel.Container, pluginID stri
 	for _, brokerPort := range brokerContainer.Ports {
 		containerPorts = append(containerPorts, corev1.ContainerPort{
 			ContainerPort: int32(brokerPort.ExposedPort),
-			Protocol:      "TCP",
+			Protocol:      corev1.ProtocolTCP,
 		})
-		portInts = append(portInts, int(brokerPort.ExposedPort))
+		portInts = append(portInts, brokerPort.ExposedPort)
 	}
 
 	container := corev1.Container{
@@ -226,7 +234,7 @@ func convertPluginContainer(brokerContainer brokerModel.Container, pluginID stri
 		Ports:           containerPorts,
 		Env:             env,
 		Resources:       containerResources,
-		VolumeMounts:    adaptVolumeMountsFromBroker(brokerContainer),
+		VolumeMounts:    adaptVolumeMountsFromBroker(workspaceId, brokerContainer),
 		ImagePullPolicy: corev1.PullAlways,
 	}
 
@@ -241,21 +249,20 @@ func convertPluginContainer(brokerContainer brokerModel.Container, pluginID stri
 	return container, containerDescription, nil
 }
 
-func adaptVolumeMountsFromBroker(brokerContainer brokerModel.Container) []corev1.VolumeMount {
+func adaptVolumeMountsFromBroker(workspaceId string, brokerContainer brokerModel.Container) []corev1.VolumeMount {
 	var volumeMounts []corev1.VolumeMount
+	volumeName := config.ControllerCfg.GetWorkspacePVCName()
 
 	// TODO: Handle ephemeral
-	for _, devfileVolume := range brokerContainer.Volumes {
+	for _, brokerVolume := range brokerContainer.Volumes {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      devfileVolume.Name,
-			MountPath: devfileVolume.MountPath,
+			Name:      volumeName,
+			SubPath:   fmt.Sprintf("%s/%s/", workspaceId, brokerVolume.Name),
+			MountPath: brokerVolume.MountPath,
 		})
 	}
 	if brokerContainer.MountSources {
-		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			MountPath: config.DefaultProjectsSourcesRoot,
-			Name:      config.DefaultPluginsVolumeName,
-		})
+		volumeMounts = append(volumeMounts, GetProjectSourcesVolumeMount(workspaceId))
 	}
 
 	return volumeMounts
@@ -282,7 +289,10 @@ func getMetasForComponents(components []v1alpha1.ComponentSpec) ([]brokerModel.P
 		}
 		metas = append(metas, *meta)
 	}
-	utils.ResolveRelativeExtensionPaths(metas, defaultRegistry)
+	err := utils.ResolveRelativeExtensionPaths(metas, defaultRegistry)
+	if err != nil {
+		return nil, err
+	}
 	return metas, nil
 }
 

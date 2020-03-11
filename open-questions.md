@@ -16,3 +16,10 @@
         - converter.go: setupPersistentVolumeClaim adds volume to "main deployment"
         - each devfile component handler mounts sources if defined in devfile.
     Current approach: option 2
+
+1. What does the `discoverable` annotation on an Endpoint mean? 
+    - Che docs:
+        > discoverable: If an endpoint is discoverable, it means that it can be accessed using its name as the hostname within the workspace containers (in the Kubernetes parlance, a service is created for it with the provided name).
+     
+    - For dockerimage components, it means that no service is created but port is open on container, which is a bit strange, since we can always bypass the 
+    - No idea how it's supposed to work for plugins, since if we respect the docs for cloud-shell, we get a nonfunctioning workspace (che machine exec endpoint is not discoverable)    

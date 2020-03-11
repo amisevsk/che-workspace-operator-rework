@@ -3,6 +3,7 @@ package workspacerouting
 import (
 	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
+	"github.com/che-incubator/che-workspace-operator/pkg/common"
 	routeV1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -28,12 +29,13 @@ func getServicesForSpec(spec v1alpha1.WorkspaceRoutingSpec, namespace string) []
 	var servicePorts []corev1.ServicePort
 	for _, endpoint := range spec.Endpoints {
 		if endpoint.Attributes[v1alpha1.DISCOVERABLE_ATTRIBUTE] != "true" {
-			//continue
+			//continue // TODO: Unclear how this is supposed to work?
 		}
 		servicePorts = append(servicePorts, corev1.ServicePort{
-			Name:     endpoint.Name,
+			Name:     common.EndpointName(endpoint.Name),
 			Protocol: corev1.ProtocolTCP, // TODO: use endpoints protocol somehow, but supported set is different?
 			Port:     int32(endpoint.Port),
+			TargetPort: intstr.FromInt(int(endpoint.Port)),
 		})
 	}
 	// TODO: Decide if we _need_ more than one service here?
@@ -61,12 +63,13 @@ func getIngressesForSpec(spec v1alpha1.WorkspaceRoutingSpec, namespace string) [
 		if endpoint.Attributes[v1alpha1.PUBLIC_ENDPOINT_ATTRIBUTE] != "true" {
 			continue
 		}
+		// TODO: endpoint name must be DNS name, *less than 15 chars*
 		var targetEndpoint intstr.IntOrString
-		if endpoint.Name != "" {
-			targetEndpoint = intstr.FromString(endpoint.Name)
-		} else {
-			targetEndpoint = intstr.FromInt(int(endpoint.Port))
-		}
+		//if endpoint.Name != "" {
+		//	targetEndpoint = intstr.FromString(EndpointName(endpoint))
+		//} else {
+		targetEndpoint = intstr.FromInt(int(endpoint.Port))
+		//}
 
 		ingresses = append(ingresses, v1beta1.Ingress{
 			ObjectMeta: v1.ObjectMeta{

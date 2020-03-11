@@ -8,8 +8,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-
-
 func SortComponentsByType(components []v1alpha1.ComponentSpec) (dockerimage, plugin []v1alpha1.ComponentSpec, err error) {
 	for _, component := range components {
 		switch component.Type {

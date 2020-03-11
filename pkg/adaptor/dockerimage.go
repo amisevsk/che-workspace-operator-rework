@@ -3,6 +3,7 @@ package adaptor
 import (
 	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
+	"github.com/che-incubator/che-workspace-operator/pkg/common"
 	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	corev1 "k8s.io/api/core/v1"
 	"strings"
@@ -95,9 +96,10 @@ func endpointsToContainerPorts(endpoints []v1alpha1.Endpoint) ([]corev1.Containe
 
 	for _, endpoint := range endpoints {
 		containerPorts = append(containerPorts, corev1.ContainerPort{
-			Name:          endpoint.Name,
+			Name:          common.EndpointName(endpoint.Name),
 			ContainerPort: int32(endpoint.Port),
-			Protocol:      corev1.Protocol(endpoint.Attributes[v1alpha1.PROTOCOL_ENDPOINT_ATTRIBUTE]),
+			//Protocol:      corev1.Protocol(endpoint.Attributes[v1alpha1.PROTOCOL_ENDPOINT_ATTRIBUTE]),
+			Protocol:      corev1.ProtocolTCP,
 		})
 		containerEndpoints = append(containerEndpoints, int(endpoint.Port))
 	}
@@ -114,10 +116,6 @@ func adaptVolumesMountsFromDevfile(devfileVolumes []v1alpha1.Volume) []corev1.Vo
 			MountPath: devfileVolume.ContainerPath,
 		})
 	}
-	volumeMounts = append(volumeMounts, corev1.VolumeMount{
-		MountPath: config.DefaultProjectsSourcesRoot,
-		Name:      config.DefaultPluginsVolumeName,
-	})
 
 	return volumeMounts
 }
@@ -134,14 +132,6 @@ func adaptVolumesFromDevfile(devfileVolumes []v1alpha1.Volume) []corev1.Volume {
 			},
 		})
 	}
-
-	volumes = append(volumes, corev1.Volume{
-		Name: config.DefaultPluginsVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			// TODO: temp workaround
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	})
 
 	return volumes
 }

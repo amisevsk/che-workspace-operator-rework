@@ -141,12 +141,11 @@ func (r *ReconcileComponent) reconcileConfigMap(instance *workspacev1alpha1.Comp
 	}
 	err = r.client.Get(context.TODO(), namespacedName, clusterConfigMap)
 	if err != nil {
-		return false, err
-	}
-
-	if clusterConfigMap == nil {
-		log.Info("Creating broker ConfigMap")
-		err := r.client.Create(context.TODO(), cm)
+		if errors.IsNotFound(err) {
+			log.Info("Creating broker ConfigMap")
+			err := r.client.Create(context.TODO(), cm)
+			return false, err
+		}
 		return false, err
 	}
 
