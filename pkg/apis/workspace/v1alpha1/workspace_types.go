@@ -27,7 +27,14 @@ type WorkspaceStatus struct {
 	Condition []WorkspaceCondition `json:"condition,omitempty"`
 	// +listType=map
 	// +listType=map +listMapKey=name
-	Components []ComponentDescription `json:"components,omitempty"`
+	Components []ComponentDescription `json:"components,omitempty"` // TODO: Remove
+
+	// TODO: This could potentially be handled via configmap more cleanly
+	AdditionalFields WorkspaceStatusAdditionalFields `json:"additionalFields,omitempty"`
+}
+
+type WorkspaceStatusAdditionalFields struct {
+	Runtimes CheWorkspaceRuntime `json:"org.eclipse.che.workspace/runtime"`
 }
 
 // WorkspaceCondition contains details for the current condition of this workspace.

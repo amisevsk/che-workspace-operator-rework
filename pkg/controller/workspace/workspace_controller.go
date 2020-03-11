@@ -170,6 +170,8 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{Requeue: deploymentStatus.Requeue}, deploymentStatus.Err
 	}
 
+
+
 	reqLogger.Info("Everything ready :)")
 	return reconcile.Result{}, nil
 }

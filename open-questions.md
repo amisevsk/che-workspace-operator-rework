@@ -1,3 +1,8 @@
+## Todo
+- Move runtime information to a configmap and mount it to che-rest-apis, avoiding need to inspect cluster
+- Do same for devfile
+
+
 ## Design questions
 1. How should mountSources be handled? 
     1. VolumeMounts *and* Volumes are defined in adaptors (i.e. dockerfile adaptor includes `/projects` in its status)
