@@ -157,7 +157,7 @@ func convertPluginContainer(workspaceId, pluginID string, brokerContainer broker
 		Attributes: map[string]string{
 			config.RestApisContainerSourceAttribute: config.RestApisRecipeSourceToolAttribute,
 			config.RestApisPluginMachineAttribute:   pluginID,
-		}, // TODO
+		},
 		Ports: portInts,
 	}
 

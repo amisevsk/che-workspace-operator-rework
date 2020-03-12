@@ -2,6 +2,7 @@
 - Move runtime information to a configmap and mount it to che-rest-apis, avoiding need to inspect cluster
 - Do same for devfile
 - Sometimes we update or patch an out-of-date object, logging an error; this should be handled
+- Do we still need to manage env var substitution in workspace commands on the controller side? c.f. interpolate in mainline repo
 
 ## Design questions
 1. How should mountSources be handled? 

@@ -22,14 +22,13 @@ import (
 
 type DeploymentProvisioningStatus struct {
 	ProvisioningStatus
-	Status string
 }
 
 var deploymentDiffOpts = cmp.Options{
 	cmpopts.IgnoreFields(appsv1.Deployment{}, "TypeMeta", "ObjectMeta", "Status"),
 	cmpopts.IgnoreFields(appsv1.DeploymentSpec{}, "RevisionHistoryLimit", "ProgressDeadlineSeconds"),
 	cmpopts.IgnoreFields(corev1.PodSpec{}, "DNSPolicy", "SchedulerName", "DeprecatedServiceAccount"),
-	// TODO: Should we really be ignoring pullPolicy?
+	// TODO: Should we really be ignoring pullPolicy? It caused diffs to fail for awhile and I don't know why
 	cmpopts.IgnoreFields(corev1.Container{}, "TerminationMessagePath", "TerminationMessagePolicy", "ImagePullPolicy"),
 	cmpopts.SortSlices(func(a, b corev1.Container) bool {
 		return strings.Compare(a.Name, b.Name) > 0
@@ -89,7 +88,6 @@ func SyncDeploymentToCluster(
 			ProvisioningStatus: ProvisioningStatus{
 				Continue: true,
 			},
-			Status: "Ready", // TODO
 		}
 	}
 
@@ -131,10 +129,10 @@ func getSpecDeployment(workspace *v1alpha1.Workspace, components []v1alpha1.Comp
 	}
 
 	commonEnv := env.CommonEnvironmentVariables(workspace.Name, workspace.Status.WorkspaceId, workspace.Namespace)
-	for idx, _ := range podAdditions.Containers {
+	for idx := range podAdditions.Containers {
 		podAdditions.Containers[idx].Env = append(podAdditions.Containers[idx].Env, commonEnv...)
 	}
-	for idx, _ := range podAdditions.InitContainers {
+	for idx := range podAdditions.InitContainers {
 		podAdditions.InitContainers[idx].Env = append(podAdditions.InitContainers[idx].Env, commonEnv...)
 	}
 

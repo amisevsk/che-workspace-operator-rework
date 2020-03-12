@@ -438,26 +438,6 @@ func schema_pkg_apis_workspace_v1alpha1_WorkspaceStatus(ref common.ReferenceCall
 							},
 						},
 					},
-					"components": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": []interface{}{
-									"map",
-									"map +listMapKey=name",
-								},
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("./pkg/apis/workspace/v1alpha1.ComponentDescription"),
-									},
-								},
-							},
-						},
-					},
 					"additionalFields": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("./pkg/apis/workspace/v1alpha1.WorkspaceStatusAdditionalFields"),
@@ -468,6 +448,6 @@ func schema_pkg_apis_workspace_v1alpha1_WorkspaceStatus(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/workspace/v1alpha1.ComponentDescription", "./pkg/apis/workspace/v1alpha1.WorkspaceCondition", "./pkg/apis/workspace/v1alpha1.WorkspaceStatusAdditionalFields"},
+			"./pkg/apis/workspace/v1alpha1.WorkspaceCondition", "./pkg/apis/workspace/v1alpha1.WorkspaceStatusAdditionalFields"},
 	}
 }

@@ -38,13 +38,13 @@ func getServicesForSpec(spec v1alpha1.WorkspaceRoutingSpec, namespace string) []
 			}
 			servicePorts = append(servicePorts, corev1.ServicePort{
 				Name:       common.EndpointName(endpoint.Name),
-				Protocol:   corev1.ProtocolTCP, // TODO: use endpoints protocol somehow, but supported set is different?
+				Protocol:   corev1.ProtocolTCP,
 				Port:       int32(endpoint.Port),
 				TargetPort: intstr.FromInt(int(endpoint.Port)),
 			})
 		}
 	}
-	// TODO: Decide if we _need_ more than one service here?
+
 	return []corev1.Service{
 		{
 			ObjectMeta: v1.ObjectMeta{
@@ -72,13 +72,10 @@ func getIngressesForSpec(spec v1alpha1.WorkspaceRoutingSpec, namespace string) (
 			if endpoint.Attributes[v1alpha1.PUBLIC_ENDPOINT_ATTRIBUTE] != "true" {
 				//continue // TODO: Unclear how this is supposed to work?
 			}
-			// TODO: endpoint name must be DNS name, *less than 15 chars*
+			// Note: there is an additional limitation on target endpoint here: must be a DNS name fewer than 15 chars long
+			// In general, endpoint.Name _cannot_ be used here
 			var targetEndpoint intstr.IntOrString
-			//if endpoint.Name != "" {
-			//	targetEndpoint = intstr.FromString(EndpointName(endpoint))
-			//} else {
 			targetEndpoint = intstr.FromInt(int(endpoint.Port))
-			//}
 
 
 			endpointName := common.EndpointName(endpoint.Name)

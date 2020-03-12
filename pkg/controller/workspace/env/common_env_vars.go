@@ -42,9 +42,5 @@ func CommonEnvironmentVariables(workspaceName, workspaceId, namespace string) []
 			Name:  "CHE_WORKSPACE_NAMESPACE",
 			Value: namespace,
 		},
-		{ //TODO
-			Name: "LOG_LEVEL",
-			Value: "debug",
-		},
 	}
 }

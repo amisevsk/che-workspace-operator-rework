@@ -24,10 +24,8 @@ type WorkspaceStatus struct {
 	Status      WorkspaceStatusType `json:"status,omitempty"`
 	// Conditions represent the latest available observations of an object's state
 	// +listType=map
+	// TODO: Handle conditions in general
 	Condition []WorkspaceCondition `json:"condition,omitempty"`
-	// +listType=map
-	// +listType=map +listMapKey=name
-	Components []ComponentDescription `json:"components,omitempty"` // TODO: Remove
 
 	// TODO: This could potentially be handled via configmap more cleanly
 	AdditionalFields WorkspaceStatusAdditionalFields `json:"additionalFields,omitempty"`
@@ -40,7 +38,7 @@ type WorkspaceStatusAdditionalFields struct {
 // WorkspaceCondition contains details for the current condition of this workspace.
 type WorkspaceCondition struct {
 	// Type is the type of the condition.
-	Type string `json:"type"` // TODO
+	Type string `json:"type"`
 	// Status is the status of the condition.
 	// Can be True, False, Unknown.
 	Status corev1.ConditionStatus `json:"status"`

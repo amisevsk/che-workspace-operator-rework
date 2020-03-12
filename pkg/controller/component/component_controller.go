@@ -54,7 +54,11 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO: Watch additional objects for e.g. the k8s component type
+	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &workspacev1alpha1.Component{},
+	})
+
 
 	return nil
 }

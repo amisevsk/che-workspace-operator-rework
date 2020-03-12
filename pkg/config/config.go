@@ -65,7 +65,7 @@ func (wc *ControllerConfig) GetWorkspacePVCName() string {
 	return wc.GetPropertyOrDefault(workspacePVCName, defaultWorkspacePVCName)
 }
 
-// TODO
+// TODO: embedded registry is removed currently; what should be done here?
 func (wc *ControllerConfig) GetPluginRegistry() string {
 	return wc.GetPropertyOrDefault(pluginRegistryURL, "")
 }

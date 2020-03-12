@@ -917,13 +917,6 @@ func (in *WorkspaceStatus) DeepCopyInto(out *WorkspaceStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.Components != nil {
-		in, out := &in.Components, &out.Components
-		*out = make([]ComponentDescription, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
-	}
 	out.AdditionalFields = in.AdditionalFields
 	return
 }

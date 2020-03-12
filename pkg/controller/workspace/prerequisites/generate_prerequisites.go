@@ -16,7 +16,7 @@ func generatePrerequisites(workspace *v1alpha1.Workspace) ([]runtime.Object, err
 		return nil, err
 	}
 
-	// TODO
+	// TODO: Need to extract Che SA to be modified; needs to be per-workspace
 	//serviceAccountName := "che-" + workspace.Status.WorkspaceId
 	// note: autoMountServiceAccount := true comes from a hardcoded value in prerequisites.go
 	autoMountServiceAccount := true

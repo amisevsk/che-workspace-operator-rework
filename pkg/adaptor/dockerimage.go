@@ -27,7 +27,7 @@ func AdaptDockerimageComponents(workspaceId string, devfileComponents []v1alpha1
 }
 
 func adaptDockerimageComponent(workspaceId string, devfileComponent v1alpha1.ComponentSpec, commands []v1alpha1.CommandSpec) (v1alpha1.ComponentDescription, error) {
-	container, containerDescription, err := getContainerFromDevfile(devfileComponent)
+	container, containerDescription, err := getContainerFromDevfile(workspaceId, devfileComponent)
 	if err != nil {
 		return v1alpha1.ComponentDescription{}, nil
 	}
@@ -39,7 +39,7 @@ func adaptDockerimageComponent(workspaceId string, devfileComponent v1alpha1.Com
 		Containers: map[string]v1alpha1.ContainerDescription{
 			container.Name: containerDescription,
 		},
-		ContributedRuntimeCommands: GetDockerfileComponentCommands(devfileComponent, commands), // TODO Handle this where it makes sense
+		ContributedRuntimeCommands: GetDockerfileComponentCommands(devfileComponent, commands),
 		Endpoints:                  devfileComponent.Endpoints,
 	}
 
@@ -47,14 +47,13 @@ func adaptDockerimageComponent(workspaceId string, devfileComponent v1alpha1.Com
 		Name: devfileComponent.Alias,
 		PodAdditions: v1alpha1.PodAdditions{
 			Containers: []corev1.Container{container},
-			Volumes:    adaptVolumesFromDevfile(devfileComponent.Volumes),
 		},
 		ComponentMetadata: componentMetadata,
 	}
 	return component, nil
 }
 
-func getContainerFromDevfile(devfileComponent v1alpha1.ComponentSpec) (corev1.Container, v1alpha1.ContainerDescription, error) {
+func getContainerFromDevfile(workspaceId string, devfileComponent v1alpha1.ComponentSpec) (corev1.Container, v1alpha1.ContainerDescription, error) {
 	containerResources, err := adaptResourcesFromString(devfileComponent.MemoryLimit)
 	if err != nil {
 		return corev1.Container{}, v1alpha1.ContainerDescription{}, err
@@ -81,7 +80,7 @@ func getContainerFromDevfile(devfileComponent v1alpha1.ComponentSpec) (corev1.Co
 		Ports:           containerEndpoints,
 		Env:             env,
 		Resources:       containerResources,
-		VolumeMounts:    adaptVolumesMountsFromDevfile(devfileComponent.Volumes),
+		VolumeMounts:    adaptVolumesMountsFromDevfile(workspaceId, devfileComponent.Volumes),
 		ImagePullPolicy: corev1.PullAlways,
 	}
 
@@ -111,12 +110,14 @@ func endpointsToContainerPorts(endpoints []v1alpha1.Endpoint) ([]corev1.Containe
 	return containerPorts, containerEndpoints
 }
 
-func adaptVolumesMountsFromDevfile(devfileVolumes []v1alpha1.Volume) []corev1.VolumeMount {
+func adaptVolumesMountsFromDevfile(workspaceId string, devfileVolumes []v1alpha1.Volume) []corev1.VolumeMount {
 	var volumeMounts []corev1.VolumeMount
+	volumeName := config.ControllerCfg.GetWorkspacePVCName()
 
 	for _, devfileVolume := range devfileVolumes {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      devfileVolume.Name,
+			Name:      volumeName,
+			SubPath: fmt.Sprintf("%s/%s/", workspaceId, devfileVolume.Name),
 			MountPath: devfileVolume.ContainerPath,
 		})
 	}
@@ -124,28 +125,11 @@ func adaptVolumesMountsFromDevfile(devfileVolumes []v1alpha1.Volume) []corev1.Vo
 	return volumeMounts
 }
 
-func adaptVolumesFromDevfile(devfileVolumes []v1alpha1.Volume) []corev1.Volume {
-	var volumes []corev1.Volume
-
-	for _, devfileVolume := range devfileVolumes {
-		volumes = append(volumes, corev1.Volume{
-			Name: devfileVolume.Name,
-			VolumeSource: corev1.VolumeSource{
-				// TODO: temp workaround
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		})
-	}
-
-	return volumes
-}
-
 func GetDockerfileComponentCommands(component v1alpha1.ComponentSpec, commands []v1alpha1.CommandSpec) []v1alpha1.CheWorkspaceCommand {
 	var componentCommands []v1alpha1.CheWorkspaceCommand
 	for _, command := range commands {
 		for _, action := range command.Actions {
 			if action.Component == component.Alias {
-				// TODO: Double check this is done properly
 				attributes := map[string]string{
 					config.CommandWorkingDirectoryAttribute:       action.Workdir, // TODO: Env var substitution?
 					config.CommandActionReferenceAttribute:        action.Reference,
