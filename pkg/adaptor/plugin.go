@@ -1,7 +1,6 @@
 package adaptor
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
 	"github.com/che-incubator/che-workspace-operator/pkg/common"
@@ -10,8 +9,6 @@ import (
 	brokerModel "github.com/eclipse/che-plugin-broker/model"
 	"github.com/eclipse/che-plugin-broker/utils"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strconv"
 	"strings"
 )
@@ -55,100 +52,6 @@ func AdaptPluginComponents(workspaceId, namespace string, devfileComponents []v1
 	return components, artifactsBrokerCM, nil
 }
 
-func getArtifactsBrokerComponent(workspaceId, namespace string, components []v1alpha1.ComponentSpec) (*v1alpha1.ComponentDescription, *corev1.ConfigMap, error) {
-	const (
-		configMapVolumeName = "broker-config-volume"
-		configMapMountPath  = "/broker-config"
-		configMapDataName   = "config.json"
-	)
-	configMapName := fmt.Sprintf("%s.broker-config-map", workspaceId)
-	brokerImage := config.ControllerCfg.GetPluginArtifactsBrokerImage()
-	brokerContainerName := "plugin-artifacts-broker"
-
-	var fqns []brokerModel.PluginFQN
-	for _, component := range components {
-		fqns = append(fqns, getPluginFQN(component))
-	}
-	cmData, err := json.Marshal(fqns)
-	if err != nil {
-		return nil, nil, err
-	}
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      configMapName,
-			Namespace: namespace,
-			Labels: map[string]string{
-				config.WorkspaceIDLabel: workspaceId,
-			},
-		},
-		Data: map[string]string{
-			configMapDataName: string(cmData),
-		},
-	}
-
-	cmMode := int32(0644)
-	// Define volumes used by plugin broker
-	cmVolume := corev1.Volume{
-		Name: configMapVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: configMapName,
-				},
-				DefaultMode: &cmMode,
-			},
-		},
-	}
-
-	cmVolumeMounts := []corev1.VolumeMount{
-		{
-			MountPath: configMapMountPath,
-			Name:      configMapVolumeName,
-			ReadOnly:  true,
-		},
-		{
-			MountPath: config.PluginsMountPath,
-			Name:      config.ControllerCfg.GetWorkspacePVCName(),
-			SubPath:   workspaceId + "/plugins",
-		},
-	}
-
-	initContainer := corev1.Container{
-		Name:                     brokerContainerName,
-		Image:                    brokerImage,
-		ImagePullPolicy:          corev1.PullPolicy(config.ControllerCfg.GetSidecarPullPolicy()),
-		VolumeMounts:             cmVolumeMounts,
-		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-		Args: []string{
-			"--disable-push",
-			"--runtime-id",
-			fmt.Sprintf("%s:%s:%s", workspaceId, "default", "anonymous"),
-			"--registry-address",
-			config.ControllerCfg.GetPluginRegistry(),
-			"--metas",
-			fmt.Sprintf("%s/%s", configMapMountPath, configMapDataName),
-		},
-		Resources: corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("150Mi"),
-			},
-			Requests: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("150Mi"),
-			},
-		},
-	}
-
-	brokerComponent := &v1alpha1.ComponentDescription{
-		Name: "artifacts-broker",
-		PodAdditions: v1alpha1.PodAdditions{
-			InitContainers: []corev1.Container{initContainer},
-			Volumes:        []corev1.Volume{cmVolume},
-		},
-	}
-
-	return brokerComponent, cm, nil
-}
-
 func adaptChePluginToComponent(workspaceId string, plugin brokerModel.ChePlugin) (v1alpha1.ComponentDescription, error) {
 	var containers []corev1.Container
 	containerDescriptions := map[string]v1alpha1.ContainerDescription{}
@@ -169,8 +72,12 @@ func adaptChePluginToComponent(workspaceId string, plugin brokerModel.ChePlugin)
 		initContainers = append(initContainers, container)
 	}
 
+	componentName := plugin.Name
+	if len(plugin.Containers) > 0 {
+		componentName = plugin.Containers[0].Name
+	}
 	component := v1alpha1.ComponentDescription{
-		Name: plugin.Name,
+		Name: componentName,
 		PodAdditions: v1alpha1.PodAdditions{
 			Containers:     containers,
 			InitContainers: initContainers,
@@ -274,15 +181,6 @@ func adaptVolumeMountsFromBroker(workspaceId string, brokerContainer brokerModel
 	}
 
 	return volumeMounts
-}
-
-func isArtifactsBrokerNecessary(metas []brokerModel.PluginMeta) bool {
-	for _, meta := range metas {
-		if len(meta.Spec.Extensions) > 0 {
-			return true
-		}
-	}
-	return false
 }
 
 func getMetasForComponents(components []v1alpha1.ComponentSpec) (metas []brokerModel.PluginMeta, aliases map[string]string, err error) {

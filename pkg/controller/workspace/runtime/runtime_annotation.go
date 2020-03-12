@@ -30,6 +30,7 @@ func getMachinesAnnotation(components []v1alpha1.ComponentDescription, endpoints
 	for _, component := range components{
 		for containerName, container := range component.ComponentMetadata.Containers {
 			servers := map[string]v1alpha1.CheWorkspaceServer{}
+			// TODO: This is likely not a good choice for matching, since it'll fail if container name does not match an endpoint key
 			for _, endpoint := range endpoints[containerName] {
 				servers[endpoint.Name] = v1alpha1.CheWorkspaceServer{
 					Attributes: endpoint.Attributes, // TODO: These don't seem to map cleanly

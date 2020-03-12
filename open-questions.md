@@ -1,7 +1,7 @@
 ## Todo
 - Move runtime information to a configmap and mount it to che-rest-apis, avoiding need to inspect cluster
 - Do same for devfile
-
+- Sometimes we update or patch an out-of-date object, logging an error; this should be handled
 
 ## Design questions
 1. How should mountSources be handled? 
@@ -31,3 +31,6 @@
     
 1. CheWorkspaceCommand appears to be incompatible with Devfile CommandSpec
     - Devfile command defines actions as an array, CheWorkspaceCommand matches name to a single action
+    
+1. Alias vs Name vs Container name
+    - 
