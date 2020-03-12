@@ -9,23 +9,24 @@ import (
 	"strings"
 )
 
-func AdaptDockerimageComponents(workspaceId string, devfileComponents []v1alpha1.ComponentSpec) ([]v1alpha1.ComponentDescription, error) {
+func AdaptDockerimageComponents(workspaceId string, devfileComponents []v1alpha1.ComponentSpec, commands []v1alpha1.CommandSpec) ([]v1alpha1.ComponentDescription, error) {
 	var components []v1alpha1.ComponentDescription
 	for _, devfileComponent := range devfileComponents {
 		if devfileComponent.Type != v1alpha1.Dockerimage {
 			return nil, fmt.Errorf("cannot adapt non-dockerfile type component %s in docker adaptor", devfileComponent.Alias)
 		}
-		component, err := adaptDockerimageComponent(workspaceId, devfileComponent)
+		component, err := adaptDockerimageComponent(workspaceId, devfileComponent, commands)
 		if err != nil {
 			return nil, err
 		}
+
 		components = append(components, component)
 	}
 
 	return components, nil
 }
 
-func adaptDockerimageComponent(workspaceId string, devfileComponent v1alpha1.ComponentSpec) (v1alpha1.ComponentDescription, error) {
+func adaptDockerimageComponent(workspaceId string, devfileComponent v1alpha1.ComponentSpec, commands []v1alpha1.CommandSpec) (v1alpha1.ComponentDescription, error) {
 	container, containerDescription, err := getContainerFromDevfile(devfileComponent)
 	if err != nil {
 		return v1alpha1.ComponentDescription{}, nil
@@ -38,15 +39,15 @@ func adaptDockerimageComponent(workspaceId string, devfileComponent v1alpha1.Com
 		Containers: map[string]v1alpha1.ContainerDescription{
 			container.Name: containerDescription,
 		},
-		ContributedRuntimeCommands: nil, // TODO Handle this where it makes sense
+		ContributedRuntimeCommands: GetDockerfileComponentCommands(devfileComponent, commands), // TODO Handle this where it makes sense
 		Endpoints:                  devfileComponent.Endpoints,
 	}
 
 	component := v1alpha1.ComponentDescription{
-		Name:              devfileComponent.Alias,
-		PodAdditions:      v1alpha1.PodAdditions{
-			Containers:     []corev1.Container{container},
-			Volumes:        adaptVolumesFromDevfile(devfileComponent.Volumes),
+		Name: devfileComponent.Alias,
+		PodAdditions: v1alpha1.PodAdditions{
+			Containers: []corev1.Container{container},
+			Volumes:    adaptVolumesFromDevfile(devfileComponent.Volumes),
 		},
 		ComponentMetadata: componentMetadata,
 	}
@@ -73,14 +74,14 @@ func getContainerFromDevfile(devfileComponent v1alpha1.ComponentSpec) (corev1.Co
 	})
 
 	container := corev1.Container{
-		Name:         devfileComponent.Alias,
-		Image:        devfileComponent.Image,
-		Command:      devfileComponent.Command,
-		Args:         devfileComponent.Args,
-		Ports:        containerEndpoints,
-		Env:          env,
-		Resources:    containerResources,
-		VolumeMounts: adaptVolumesMountsFromDevfile(devfileComponent.Volumes),
+		Name:            devfileComponent.Alias,
+		Image:           devfileComponent.Image,
+		Command:         devfileComponent.Command,
+		Args:            devfileComponent.Args,
+		Ports:           containerEndpoints,
+		Env:             env,
+		Resources:       containerResources,
+		VolumeMounts:    adaptVolumesMountsFromDevfile(devfileComponent.Volumes),
 		ImagePullPolicy: corev1.PullAlways,
 	}
 
@@ -88,7 +89,7 @@ func getContainerFromDevfile(devfileComponent v1alpha1.ComponentSpec) (corev1.Co
 		Attributes: map[string]string{
 			config.RestApisContainerSourceAttribute: config.RestApisRecipeSourceContainerAttribute,
 		},
-		Ports:      endpointInts,
+		Ports: endpointInts,
 	}
 	return container, containerDescription, nil
 }
@@ -102,7 +103,7 @@ func endpointsToContainerPorts(endpoints []v1alpha1.Endpoint) ([]corev1.Containe
 			Name:          common.EndpointName(endpoint.Name),
 			ContainerPort: int32(endpoint.Port),
 			//Protocol:      corev1.Protocol(endpoint.Attributes[v1alpha1.PROTOCOL_ENDPOINT_ATTRIBUTE]),
-			Protocol:      corev1.ProtocolTCP,
+			Protocol: corev1.ProtocolTCP,
 		})
 		containerEndpoints = append(containerEndpoints, int(endpoint.Port))
 	}
@@ -137,4 +138,30 @@ func adaptVolumesFromDevfile(devfileVolumes []v1alpha1.Volume) []corev1.Volume {
 	}
 
 	return volumes
+}
+
+func GetDockerfileComponentCommands(component v1alpha1.ComponentSpec, commands []v1alpha1.CommandSpec) []v1alpha1.CheWorkspaceCommand {
+	var componentCommands []v1alpha1.CheWorkspaceCommand
+	for _, command := range commands {
+		for _, action := range command.Actions {
+			if action.Component == component.Alias {
+				// TODO: Double check this is done properly
+				attributes := map[string]string{
+					config.CommandWorkingDirectoryAttribute:       action.Workdir, // TODO: Env var substitution?
+					config.CommandActionReferenceAttribute:        action.Reference,
+					config.CommandActionReferenceContentAttribute: action.ReferenceContent,
+					config.CommandMachineNameAttribute:            component.Alias,
+					config.ComponentAliasCommandAttribute:         action.Component,
+				}
+
+				componentCommands = append(componentCommands, v1alpha1.CheWorkspaceCommand{
+					Name:        command.Name,
+					Type:        action.Type,
+					CommandLine: action.Command,
+					Attributes:  attributes,
+				})
+			}
+		}
+	}
+	return componentCommands
 }

@@ -140,10 +140,10 @@ type CommandSpec struct {
 }
 
 type CommandActionSpec struct {
-	Command          *string `json:"command,omitempty"`          // The actual action command-line string
-	Component        *string `json:"component,omitempty"`        // Describes component to which given action relates
-	Type             string  `json:"type"`                       // Describes action type
-	Workdir          *string `json:"workdir,omitempty"`          // Working directory where the command should be executed
-	Reference        *string `json:"reference,omitempty"`        // Working directory where the command should be executed
-	ReferenceContent *string `json:"referenceContent,omitempty"` // Working directory where the command should be executed
+	Command          string `json:"command,omitempty"`          // The actual action command-line string
+	Component        string `json:"component,omitempty"`        // Describes component to which given action relates
+	Type             string `json:"type"`                       // Describes action type
+	Workdir          string `json:"workdir,omitempty"`          // Working directory where the command should be executed
+	Reference        string `json:"reference,omitempty"`        // Working directory where the command should be executed
+	ReferenceContent string `json:"referenceContent,omitempty"` // Working directory where the command should be executed
 }

@@ -60,4 +60,28 @@ const(
 
 	// Mark containers created workspace api like tooling for user development.
 	RestApisRecipeSourceToolAttribute = "tool"
+
+	// Command attribute which indicates the working directory where the given command must be run
+	CommandWorkingDirectoryAttribute = "workingDir"
+
+	// Command attribute which indicates in which machine command must be run. It is optional,
+	// IDE should asks user to choose machine if null.
+	CommandMachineNameAttribute = "machineName"
+
+	// Command attribute which indicates in which plugin command must be run. If specified
+	// plugin has multiple containers then first containers should be used. Attribute value has the
+	// following format: `{PLUGIN_PUBLISHER}/{PLUGIN_NAME}/{PLUGIN_VERSION}`. For example:
+	// eclipse/sample-plugin/0.0.1
+	CommandPluginAttribute = "plugin"
+
+	// An attribute of the command to store the original path to the file that contains the editor
+	// specific configuration.
+	CommandActionReferenceAttribute = "actionReference"
+
+	// The contents of editor-specific content
+	CommandActionReferenceContentAttribute = "actionReferenceContent"
+
+	// Workspace command attributes that indicates with which component it is associated. */
+	ComponentAliasCommandAttribute = "componentAlias"
+
 )

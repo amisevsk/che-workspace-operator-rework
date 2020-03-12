@@ -96,7 +96,9 @@ func (r *ReconcileComponent) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	dockerimageComponents, err := adaptor.AdaptDockerimageComponents(instance.Spec.WorkspaceId, dockerimageDevfileComponents)
+	commands := instance.Spec.Commands
+
+	dockerimageComponents, err := adaptor.AdaptDockerimageComponents(instance.Spec.WorkspaceId, dockerimageDevfileComponents, commands)
 	if err != nil {
 		reqLogger.Info("Failed to adapt dockerimage components")
 		return reconcile.Result{}, err
@@ -132,8 +134,10 @@ func (r *ReconcileComponent) Reconcile(request reconcile.Request) (reconcile.Res
 }
 
 func (r *ReconcileComponent) reconcileConfigMap(instance *workspacev1alpha1.Component, cm *corev1.ConfigMap, log logr.Logger) (ok bool, err error) {
-	controllerutil.SetControllerReference(instance, cm, r.scheme)
-
+	err = controllerutil.SetControllerReference(instance, cm, r.scheme)
+	if err != nil {
+		return false, err
+	}
 	clusterConfigMap := &corev1.ConfigMap{}
 	namespacedName := types.NamespacedName{
 		Namespace: cm.Namespace,

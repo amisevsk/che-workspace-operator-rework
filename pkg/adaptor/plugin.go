@@ -38,6 +38,7 @@ func AdaptPluginComponents(workspaceId, namespace string, devfileComponents []v1
 		if aliases[plugin.ID] != "" {
 			component.Name = aliases[plugin.ID]
 		}
+
 		components = append(components, component)
 	}
 
@@ -176,7 +177,7 @@ func adaptChePluginToComponent(workspaceId string, plugin brokerModel.ChePlugin)
 		},
 		ComponentMetadata: v1alpha1.ComponentMetadata{
 			Containers:                 containerDescriptions,
-			ContributedRuntimeCommands: nil, // TODO
+			ContributedRuntimeCommands: GetPluginComponentCommands(plugin), // TODO: Can regular commands apply to plugins in devfile spec?
 			Endpoints:                  createEndpointsFromPlugin(plugin),
 		},
 	}
@@ -289,6 +290,9 @@ func getMetasForComponents(components []v1alpha1.ComponentSpec) (metas []brokerM
 	ioUtils := utils.New()
 	aliases = map[string]string{}
 	for _, component := range components {
+		if component.Type != v1alpha1.ChePlugin && component.Type != v1alpha1.CheEditor {
+			return nil, nil, fmt.Errorf("cannot adapt non-plugin or editor type component %s in plugin adaptor", component.Type)
+		}
 		fqn := getPluginFQN(component)
 		meta, err := utils.GetPluginMeta(fqn, defaultRegistry, ioUtils)
 		if err != nil {
@@ -315,4 +319,25 @@ func getPluginFQN(component v1alpha1.ComponentSpec) brokerModel.PluginFQN {
 	}
 	pluginFQN.Reference = component.Reference
 	return pluginFQN
+}
+
+func GetPluginComponentCommands(plugin brokerModel.ChePlugin) []v1alpha1.CheWorkspaceCommand {
+	var commands []v1alpha1.CheWorkspaceCommand
+
+	for _, pluginContainer := range plugin.Containers {
+		for _, pluginCommand := range pluginContainer.Commands {
+			command := v1alpha1.CheWorkspaceCommand{
+				Name:        pluginCommand.Name,
+				CommandLine: strings.Join(pluginCommand.Command, " "),
+				Type:        "custom",
+				Attributes: map[string]string{
+					config.CommandWorkingDirectoryAttribute: pluginCommand.WorkingDir, // TODO: Env Var substitution?
+					config.CommandMachineNameAttribute:      pluginContainer.Name,
+				},
+			}
+			commands = append(commands, command)
+		}
+	}
+
+	return commands
 }

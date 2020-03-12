@@ -10,6 +10,8 @@ type WorkspaceComponentSpec struct {
 	WorkspaceId string `json:"workspaceId"`
 	// +listType=map +listMapKey=name
 	Components []ComponentSpec `json:"components"`
+	// +listType=map +listMapKey=name
+	Commands []CommandSpec `json:"commands,omitempty"`
 }
 
 // ComponentStatus defines the observed state of Component

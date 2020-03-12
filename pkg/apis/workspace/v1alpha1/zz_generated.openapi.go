@@ -141,12 +141,29 @@ func schema_pkg_apis_workspace_v1alpha1_WorkspaceComponentSpec(ref common.Refere
 							},
 						},
 					},
+					"commands": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "map +listMapKey=name",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("./pkg/apis/workspace/v1alpha1.CommandSpec"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"workspaceId", "components"},
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/workspace/v1alpha1.ComponentSpec"},
+			"./pkg/apis/workspace/v1alpha1.CommandSpec", "./pkg/apis/workspace/v1alpha1.ComponentSpec"},
 	}
 }
 

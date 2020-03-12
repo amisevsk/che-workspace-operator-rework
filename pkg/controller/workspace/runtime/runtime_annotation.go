@@ -9,10 +9,11 @@ func ConstructRuntimeAnnotation(components []v1alpha1.ComponentDescription, endp
 	defaultEnv := "default"
 
 	machines := getMachinesAnnotation(components, endpoints)
+	commands := getWorkspaceCommands(components)
 
 	runtime := v1alpha1.CheWorkspaceRuntime{
 		ActiveEnv:    defaultEnv,
-		Commands:     nil, // TODO
+		Commands:     commands,
 		Machines:     machines,
 	}
 
@@ -32,7 +33,7 @@ func getMachinesAnnotation(components []v1alpha1.ComponentDescription, endpoints
 			for _, endpoint := range endpoints[containerName] {
 				servers[endpoint.Name] = v1alpha1.CheWorkspaceServer{
 					Attributes: endpoint.Attributes, // TODO: These don't seem to map cleanly
-					Status:     v1alpha1.UnknownServerStatus, // TODO
+					Status:     v1alpha1.RunningServerStatus, // TODO: This is just set so the circles are green
 					URL:        endpoint.Url,
 				}
 			}
@@ -44,4 +45,12 @@ func getMachinesAnnotation(components []v1alpha1.ComponentDescription, endpoints
 	}
 
 	return machines
+}
+
+func getWorkspaceCommands(components []v1alpha1.ComponentDescription) []v1alpha1.CheWorkspaceCommand {
+	var commands []v1alpha1.CheWorkspaceCommand
+	for _, component := range components {
+		commands = append(commands, component.ComponentMetadata.ContributedRuntimeCommands...)
+	}
+	return commands
 }

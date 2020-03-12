@@ -31,6 +31,38 @@ spec:
         spec:
           description: ComponentSpec defines the desired state of Component
           properties:
+            commands:
+              items:
+                properties:
+                  actions:
+                    items:
+                      properties:
+                        command:
+                          type: string
+                        component:
+                          type: string
+                        reference:
+                          type: string
+                        referenceContent:
+                          type: string
+                        type:
+                          type: string
+                        workdir:
+                          type: string
+                      required:
+                      - type
+                      type: object
+                    type: array
+                  attributes:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
+              type: array
             components:
               items:
                 properties:

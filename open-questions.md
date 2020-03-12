@@ -28,3 +28,6 @@
      
     - For dockerimage components, it means that no service is created but port is open on container, which is a bit strange, since we can always bypass the 
     - No idea how it's supposed to work for plugins, since if we respect the docs for cloud-shell, we get a nonfunctioning workspace (che machine exec endpoint is not discoverable)    
+    
+1. CheWorkspaceCommand appears to be incompatible with Devfile CommandSpec
+    - Devfile command defines actions as an array, CheWorkspaceCommand matches name to a single action
