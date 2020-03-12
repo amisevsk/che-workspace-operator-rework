@@ -837,9 +837,19 @@ func (in *WorkspaceRoutingSpec) DeepCopyInto(out *WorkspaceRoutingSpec) {
 	*out = *in
 	if in.Endpoints != nil {
 		in, out := &in.Endpoints, &out.Endpoints
-		*out = make([]Endpoint, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
+		*out = make(map[string][]Endpoint, len(*in))
+		for key, val := range *in {
+			var outVal []Endpoint
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				in, out := &val, &outVal
+				*out = make([]Endpoint, len(*in))
+				for i := range *in {
+					(*in)[i].DeepCopyInto(&(*out)[i])
+				}
+			}
+			(*out)[key] = outVal
 		}
 	}
 	if in.PodSelector != nil {

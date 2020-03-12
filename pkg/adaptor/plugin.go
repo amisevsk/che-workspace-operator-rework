@@ -21,7 +21,7 @@ func AdaptPluginComponents(workspaceId, namespace string, devfileComponents []v1
 
 	broker := metadataBroker.NewBroker(true)
 
-	metas, err := getMetasForComponents(devfileComponents)
+	metas, aliases, err := getMetasForComponents(devfileComponents)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -34,6 +34,9 @@ func AdaptPluginComponents(workspaceId, namespace string, devfileComponents []v1
 		component, err := adaptChePluginToComponent(workspaceId, plugin)
 		if err != nil {
 			return nil, nil, err
+		}
+		if aliases[plugin.ID] != "" {
+			component.Name = aliases[plugin.ID]
 		}
 		components = append(components, component)
 	}
@@ -146,33 +149,37 @@ func getArtifactsBrokerComponent(workspaceId, namespace string, components []v1a
 }
 
 func adaptChePluginToComponent(workspaceId string, plugin brokerModel.ChePlugin) (v1alpha1.ComponentDescription, error) {
-	component := v1alpha1.ComponentDescription{}
-
 	var containers []corev1.Container
+	containerDescriptions := map[string]v1alpha1.ContainerDescription{}
 	for _, pluginContainer := range plugin.Containers {
 		container, containerDescription, err := convertPluginContainer(workspaceId, plugin.ID, pluginContainer)
 		if err != nil {
-			return component, err
+			return v1alpha1.ComponentDescription{}, err
 		}
 		containers = append(containers, container)
-		component.ComponentMetadata = v1alpha1.ComponentMetadata{
-			Containers: map[string]v1alpha1.ContainerDescription{
-				container.Name: containerDescription,
-			},
-			ContributedRuntimeCommands: nil, // TODO Hard to do since we *shouldn't* have to care about the whole devfile
-			Endpoints:                  createEndpointsFromPlugin(plugin),
-		}
-		// TODO: Use aliases to set names?
+		containerDescriptions[container.Name] = containerDescription
 	}
+	var initContainers []corev1.Container
 	for _, pluginInitContainer := range plugin.InitContainers {
 		container, _, err := convertPluginContainer(workspaceId, plugin.ID, pluginInitContainer)
 		if err != nil {
-			return component, err
+			return v1alpha1.ComponentDescription{}, err
 		}
-		component.PodAdditions.InitContainers = append(component.PodAdditions.InitContainers, container)
+		initContainers = append(initContainers, container)
 	}
 
-	component.PodAdditions.Containers = append(component.PodAdditions.Containers, containers...)
+	component := v1alpha1.ComponentDescription{
+		Name: plugin.Name,
+		PodAdditions: v1alpha1.PodAdditions{
+			Containers:     containers,
+			InitContainers: initContainers,
+		},
+		ComponentMetadata: v1alpha1.ComponentMetadata{
+			Containers:                 containerDescriptions,
+			ContributedRuntimeCommands: nil, // TODO
+			Endpoints:                  createEndpointsFromPlugin(plugin),
+		},
+	}
 
 	return component, nil
 }
@@ -277,23 +284,24 @@ func isArtifactsBrokerNecessary(metas []brokerModel.PluginMeta) bool {
 	return false
 }
 
-func getMetasForComponents(components []v1alpha1.ComponentSpec) ([]brokerModel.PluginMeta, error) {
+func getMetasForComponents(components []v1alpha1.ComponentSpec) (metas []brokerModel.PluginMeta, aliases map[string]string, err error) {
 	defaultRegistry := config.ControllerCfg.GetPluginRegistry()
 	ioUtils := utils.New()
-	var metas []brokerModel.PluginMeta
+	aliases = map[string]string{}
 	for _, component := range components {
 		fqn := getPluginFQN(component)
 		meta, err := utils.GetPluginMeta(fqn, defaultRegistry, ioUtils)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		metas = append(metas, *meta)
+		aliases[meta.ID] = component.Alias
 	}
-	err := utils.ResolveRelativeExtensionPaths(metas, defaultRegistry)
+	err = utils.ResolveRelativeExtensionPaths(metas, defaultRegistry)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return metas, nil
+	return metas, aliases, nil
 }
 
 func getPluginFQN(component v1alpha1.ComponentSpec) brokerModel.PluginFQN {

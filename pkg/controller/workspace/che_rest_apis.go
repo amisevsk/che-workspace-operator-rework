@@ -44,7 +44,9 @@ func getCheRestApisComponent(workspaceName, workspaceId, namespace string) v1alp
 		ComponentMetadata: v1alpha1.ComponentMetadata{
 			Containers: map[string]v1alpha1.ContainerDescription{
 				cheRestAPIsName: {
-					Attributes: nil,
+					Attributes: map[string]string{
+						config.RestApisContainerSourceAttribute: config.RestApisRecipeSourceToolAttribute,
+					},
 					Ports:      []int{cheRestApisPort},
 				},
 			},

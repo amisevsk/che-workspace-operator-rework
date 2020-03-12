@@ -21,7 +21,7 @@ type WorkspaceSpec struct {
 // +k8s:openapi-gen=true
 type WorkspaceStatus struct {
 	WorkspaceId string              `json:"workspaceId"`
-	Status      WorkspaceStatusType `json:"status"`
+	Status      WorkspaceStatusType `json:"status,omitempty"`
 	// Conditions represent the latest available observations of an object's state
 	// +listType=map
 	Condition []WorkspaceCondition `json:"condition,omitempty"`

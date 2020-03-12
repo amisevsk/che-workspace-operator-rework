@@ -10,8 +10,7 @@ type WorkspaceRoutingSpec struct {
 	WorkspaceId         string                `json:"workspaceId"`
 	RoutingClass        WorkspaceRoutingClass `json:"routingClass,omitempty"`
 	IngressGlobalDomain string                `json:"ingressGlobalDomain"`
-	// +listType=map +listMapKey=name
-	Endpoints   []Endpoint        `json:"endpoints"`
+	Endpoints   map[string][]Endpoint        `json:"endpoints"`
 	PodSelector map[string]string `json:"podSelector"'`
 }
 

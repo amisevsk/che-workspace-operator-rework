@@ -31,24 +31,7 @@ spec:
         spec:
           description: WorkspaceRoutingSpec defines the desired state of WorkspaceRouting
           properties:
-            endpoints:
-              items:
-                description: Describes dockerimage component endpoint
-                properties:
-                  attributes:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  name:
-                    type: string
-                  port:
-                    format: int64
-                    type: integer
-                required:
-                - name
-                - port
-                type: object
-              type: array
+            endpoints: {}
             ingressGlobalDomain:
               type: string
             podSelector:

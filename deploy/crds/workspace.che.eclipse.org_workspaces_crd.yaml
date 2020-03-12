@@ -3579,7 +3579,6 @@ spec:
             workspaceId:
               type: string
           required:
-          - status
           - workspaceId
           type: object
       type: object

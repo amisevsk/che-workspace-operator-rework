@@ -175,7 +175,7 @@ func getSpecDeployment(workspace *v1alpha1.Workspace, components []v1alpha1.Comp
 					},
 				},
 				Spec: corev1.PodSpec{
-					InitContainers:                podAdditions.InitContainers,
+					InitContainers:                append(podAdditions.InitContainers, precreateSubpathsInitContainer(workspace.Status.WorkspaceId)),
 					Containers:                    podAdditions.Containers,
 					Volumes:                       append(podAdditions.Volumes, getPersistentVolumeClaim()),
 					ImagePullSecrets:              podAdditions.PullSecrets,
@@ -277,4 +277,29 @@ func getPersistentVolumeClaim() corev1.Volume {
 		},
 	}
 	return pvcVolume
+}
+
+func precreateSubpathsInitContainer(workspaceId string) corev1.Container{
+	initContainer :=  corev1.Container{
+		Name:    "precreate-subpaths",
+		Image:   "registry.access.redhat.com/ubi8/ubi-minimal",
+		Command: []string{"/usr/bin/mkdir"},
+		Args: []string{
+			"-p",
+			"-v",
+			"-m",
+			"777",
+			"/tmp/che-workspaces/" + workspaceId,
+		},
+		ImagePullPolicy: corev1.PullPolicy(config.ControllerCfg.GetSidecarPullPolicy()),
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				MountPath: "/tmp/che-workspaces",
+				Name:      config.ControllerCfg.GetWorkspacePVCName(),
+				ReadOnly:  false,
+			},
+		},
+		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+	}
+	return initContainer
 }

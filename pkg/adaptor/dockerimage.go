@@ -26,20 +26,15 @@ func AdaptDockerimageComponents(workspaceId string, devfileComponents []v1alpha1
 }
 
 func adaptDockerimageComponent(workspaceId string, devfileComponent v1alpha1.ComponentSpec) (v1alpha1.ComponentDescription, error) {
-	component := v1alpha1.ComponentDescription{}
-
 	container, containerDescription, err := getContainerFromDevfile(devfileComponent)
+	if err != nil {
+		return v1alpha1.ComponentDescription{}, nil
+	}
 	if devfileComponent.MountSources {
 		container.VolumeMounts = append(container.VolumeMounts, GetProjectSourcesVolumeMount(workspaceId))
 	}
-	if err != nil {
-		return component, nil
-	}
-	component.PodAdditions.Containers = []corev1.Container{container}
 
-	component.PodAdditions.Volumes = adaptVolumesFromDevfile(devfileComponent.Volumes)
-
-	component.ComponentMetadata = v1alpha1.ComponentMetadata{
+	componentMetadata := v1alpha1.ComponentMetadata{
 		Containers: map[string]v1alpha1.ContainerDescription{
 			container.Name: containerDescription,
 		},
@@ -47,6 +42,14 @@ func adaptDockerimageComponent(workspaceId string, devfileComponent v1alpha1.Com
 		Endpoints:                  devfileComponent.Endpoints,
 	}
 
+	component := v1alpha1.ComponentDescription{
+		Name:              devfileComponent.Alias,
+		PodAdditions:      v1alpha1.PodAdditions{
+			Containers:     []corev1.Container{container},
+			Volumes:        adaptVolumesFromDevfile(devfileComponent.Volumes),
+		},
+		ComponentMetadata: componentMetadata,
+	}
 	return component, nil
 }
 

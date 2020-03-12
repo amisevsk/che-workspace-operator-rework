@@ -259,17 +259,20 @@ func schema_pkg_apis_workspace_v1alpha1_WorkspaceRoutingSpec(ref common.Referenc
 						},
 					},
 					"endpoints": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "map +listMapKey=name",
-							},
-						},
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("./pkg/apis/workspace/v1alpha1.Endpoint"),
+										Type: []string{"array"},
+										Items: &spec.SchemaOrArray{
+											Schema: &spec.Schema{
+												SchemaProps: spec.SchemaProps{
+													Ref: ref("./pkg/apis/workspace/v1alpha1.Endpoint"),
+												},
+											},
+										},
 									},
 								},
 							},
@@ -444,7 +447,7 @@ func schema_pkg_apis_workspace_v1alpha1_WorkspaceStatus(ref common.ReferenceCall
 						},
 					},
 				},
-				Required: []string{"workspaceId", "status"},
+				Required: []string{"workspaceId"},
 			},
 		},
 		Dependencies: []string{

@@ -22,8 +22,11 @@ import (
 
 var log = logf.Log.WithName("controller_workspacerouting")
 
-type Solver interface {
-	SyncRoutingObjects()
+type RoutingObjects struct {
+	Services         []corev1.Service
+	Ingresses        []v1beta1.Ingress
+	Routes           []routeV1.Route
+	ExposedEndpoints map[string][]workspacev1alpha1.ExposedEndpoint
 }
 
 // Add creates a new WorkspaceRouting Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -116,10 +119,12 @@ func (r *ReconcileWorkspaceRouting) Reconcile(request reconcile.Request) (reconc
 		return reconcile.Result{}, err
 	}
 
-	services, ingresses, _ := GetSpecObjects(instance.Spec, instance.Namespace)
+	routingObjects := GetSpecObjects(instance.Spec, instance.Namespace)
+	services := routingObjects.Services
 	for idx := range services {
 		controllerutil.SetControllerReference(instance, &services[idx], r.scheme)
 	}
+	ingresses := routingObjects.Ingresses
 	for idx := range ingresses {
 		controllerutil.SetControllerReference(instance, &ingresses[idx], r.scheme)
 	}
@@ -138,7 +143,7 @@ func (r *ReconcileWorkspaceRouting) Reconcile(request reconcile.Request) (reconc
 
 	instance.Status.Ready = true
 	instance.Status.PodAdditions = nil
-	instance.Status.ExposedEndpoints = nil // TODO
+	instance.Status.ExposedEndpoints = routingObjects.ExposedEndpoints
 	err = r.client.Status().Update(context.TODO(), instance)
 	return reconcile.Result{}, err
 }

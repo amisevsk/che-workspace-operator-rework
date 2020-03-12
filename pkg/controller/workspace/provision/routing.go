@@ -83,9 +83,9 @@ func getSpecRouting(
 		componentDescriptions []v1alpha1.ComponentDescription,
 		scheme *runtime.Scheme) (*v1alpha1.WorkspaceRouting, error) {
 
-	var endpoints []v1alpha1.Endpoint
+	endpoints := map[string][]v1alpha1.Endpoint{}
 	for _, desc := range componentDescriptions {
-		endpoints = append(endpoints, desc.ComponentMetadata.Endpoints...)
+		endpoints[desc.Name] = append(endpoints[desc.Name], desc.ComponentMetadata.Endpoints...)
 	}
 
 	routing := &v1alpha1.WorkspaceRouting{

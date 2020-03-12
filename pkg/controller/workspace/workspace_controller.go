@@ -162,7 +162,7 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	// Step 2.5 setup runtime annotation (TODO: use configmap)
-	cheRuntime, err := wsRuntime.ConstructRuntimeAnnotation(componentDescriptions)
+	cheRuntime, err := wsRuntime.ConstructRuntimeAnnotation(componentDescriptions, routingStatus.ExposedEndpoints)
 	workspaceStatus := provision.SyncWorkspaceStatus(workspace, cheRuntime, r.client)
 	if !workspaceStatus.Continue {
 		reqLogger.Info("Updating workspace status")
