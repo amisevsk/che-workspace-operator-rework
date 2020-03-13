@@ -128,13 +128,7 @@ func (r *ReconcileComponent) Reconcile(request reconcile.Request) (reconcile.Res
 		}
 	}
 
-	instance.Status.ComponentDescriptions = components
-	instance.Status.Ready = true
-	err = r.client.Status().Update(context.TODO(), instance)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	return reconcile.Result{}, nil
+	return reconcile.Result{}, r.reconcileStatus(instance, components)
 }
 
 func (r *ReconcileComponent) reconcileConfigMap(instance *workspacev1alpha1.Component, cm *corev1.ConfigMap, log logr.Logger) (ok bool, err error) {
@@ -166,4 +160,13 @@ func (r *ReconcileComponent) reconcileConfigMap(instance *workspacev1alpha1.Comp
 	}
 
 	return true, nil
+}
+
+func (r *ReconcileComponent) reconcileStatus(instance *workspacev1alpha1.Component, components []workspacev1alpha1.ComponentDescription) error {
+	if instance.Status.Ready && cmp.Equal(instance.Status.ComponentDescriptions, components) {
+		return nil
+	}
+	instance.Status.ComponentDescriptions = components
+	instance.Status.Ready = true
+	return r.client.Status().Update(context.TODO(), instance)
 }

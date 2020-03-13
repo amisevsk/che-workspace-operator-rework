@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/che-incubator/che-workspace-operator/internal/cluster"
 	workspacev1alpha1 "github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
+	"github.com/google/go-cmp/cmp"
 	routeV1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -26,6 +27,7 @@ type RoutingObjects struct {
 	Services         []corev1.Service
 	Ingresses        []v1beta1.Ingress
 	Routes           []routeV1.Route
+	PodAdditions     *workspacev1alpha1.PodAdditions
 	ExposedEndpoints map[string][]workspacev1alpha1.ExposedEndpoint
 }
 
@@ -131,19 +133,25 @@ func (r *ReconcileWorkspaceRouting) Reconcile(request reconcile.Request) (reconc
 
 	servicesInSync, err := r.syncServices(instance, services)
 	if err != nil || !servicesInSync {
-		reqLogger.Info(fmt.Sprintf("Services not in sync: %s", err))
+		reqLogger.Info(fmt.Sprintf("Services not in sync: %w", err))
 		return reconcile.Result{Requeue: true}, err
 	}
 
 	ingressesInSync, err := r.syncIngresses(instance, ingresses)
 	if err != nil || !ingressesInSync {
-		reqLogger.Info(fmt.Sprintf("Ingresses not in sync: %s", err))
+		reqLogger.Info(fmt.Sprintf("Ingresses not in sync: %w", err))
 		return reconcile.Result{Requeue: true}, err
 	}
 
+	return reconcile.Result{}, r.reconcileStatus(instance, routingObjects)
+}
+
+func (r *ReconcileWorkspaceRouting) reconcileStatus(instance *workspacev1alpha1.WorkspaceRouting, routingObjects RoutingObjects) error {
+	if instance.Status.Ready && cmp.Equal(instance.Status.PodAdditions, routingObjects.PodAdditions) && cmp.Equal(instance.Status.ExposedEndpoints, routingObjects.ExposedEndpoints) {
+		return nil
+	}
 	instance.Status.Ready = true
-	instance.Status.PodAdditions = nil
+	instance.Status.PodAdditions = routingObjects.PodAdditions
 	instance.Status.ExposedEndpoints = routingObjects.ExposedEndpoints
-	err = r.client.Status().Update(context.TODO(), instance)
-	return reconcile.Result{}, err
+	return r.client.Status().Update(context.TODO(), instance)
 }
