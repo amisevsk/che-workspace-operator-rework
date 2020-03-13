@@ -9,4 +9,6 @@ type PodAdditions struct {
 	InitContainers []v1.Container            `json:"initContainers,omitempty"`
 	Volumes        []v1.Volume               `json:"volumes,omitempty"`
 	PullSecrets    []v1.LocalObjectReference `json:"pullSecrets,omitempty"`
+	// Annotations for the workspace service account, required for e.g. OpenShift oauth
+	ServiceAccountAnnotations map[string]string `json:"serviceAccountAnnotations,omitempty"`
 }

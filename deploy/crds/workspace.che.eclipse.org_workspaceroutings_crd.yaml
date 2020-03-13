@@ -1897,6 +1897,12 @@ spec:
                         type: string
                     type: object
                   type: array
+                serviceAccountAnnotations:
+                  additionalProperties:
+                    type: string
+                  description: Annotations for the workspace service account, required
+                    for e.g. OpenShift oauth
+                  type: object
                 volumes:
                   items:
                     description: Volume represents a named volume in a pod that may

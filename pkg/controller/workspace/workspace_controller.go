@@ -3,6 +3,7 @@ package workspace
 import (
 	"context"
 	"fmt"
+	"github.com/che-incubator/che-workspace-operator/internal/cluster"
 	workspacev1alpha1 "github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
 	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/prerequisites"
@@ -87,6 +88,15 @@ func add(mgr manager.Manager, r *ReconcileWorkspace) error {
 		OwnerType:    &workspacev1alpha1.Workspace{},
 	})
 
+	// Check if we're running on OpenShift
+	isOS, err := cluster.IsOpenShift()
+	if err != nil {
+		return err
+	}
+	config.ControllerCfg.SetIsOpenShift(isOS)
+
+	// Redirect standard logging to the reconcile's log
+	// Necessary as e.g. the plugin broker logs to stdout
 	origLog.SetOutput(r)
 
 	return nil
@@ -114,6 +124,11 @@ func (r *ReconcileWorkspace) Write(p []byte) (n int, err error) {
 func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Workspace")
+	clusterAPI := provision.ClusterAPI{
+		Client: r.client,
+		Scheme: r.scheme,
+		Logger: reqLogger,
+	}
 
 	// Fetch the Workspace instance
 	workspace := &workspacev1alpha1.Workspace{}
@@ -129,6 +144,8 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
+	// TODO: The rolebindings here are created namespace-wide; find a way to limit this, given that each workspace
+	// needs a new serviceAccount
 	err = prerequisites.CheckPrerequisites(workspace, r.client, reqLogger)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -144,7 +161,7 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	// Step one: Create components, and wait for their states to be ready.
-	componentsStatus := provision.SyncComponentsToCluster(workspace, r.client, r.scheme)
+	componentsStatus := provision.SyncComponentsToCluster(workspace, clusterAPI)
 	if !componentsStatus.Continue {
 		reqLogger.Info("Waiting on components to be ready")
 		return reconcile.Result{Requeue: componentsStatus.Requeue}, componentsStatus.Err
@@ -155,7 +172,7 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 	componentDescriptions = append(componentDescriptions, cheRestApisComponent)
 
 	// Step two: Create routing, and wait for routing to be ready
-	routingStatus := provision.SyncRoutingToCluster(workspace, componentDescriptions, r.client, r.scheme)
+	routingStatus := provision.SyncRoutingToCluster(workspace, componentDescriptions, clusterAPI)
 	if !routingStatus.Continue {
 		reqLogger.Info("Waiting on routing to be ready")
 		return reconcile.Result{Requeue: routingStatus.Requeue}, routingStatus.Err
@@ -163,7 +180,7 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 
 	// Step 2.5 setup runtime annotation (TODO: use configmap)
 	cheRuntime, err := wsRuntime.ConstructRuntimeAnnotation(componentDescriptions, routingStatus.ExposedEndpoints)
-	workspaceStatus := provision.SyncWorkspaceStatus(workspace, cheRuntime, r.client)
+	workspaceStatus := provision.SyncWorkspaceStatus(workspace, cheRuntime, clusterAPI)
 	if !workspaceStatus.Continue {
 		reqLogger.Info("Updating workspace status")
 		return reconcile.Result{Requeue: workspaceStatus.Requeue}, workspaceStatus.Err
@@ -171,9 +188,28 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 
 	// Step three: Collect all workspace deployment contributions
 	routingPodAdditions := routingStatus.PodAdditions
+	var podAdditions []workspacev1alpha1.PodAdditions
+	for _, component := range componentDescriptions {
+		podAdditions = append(podAdditions, component.PodAdditions)
+	}
+	if routingPodAdditions != nil {
+		podAdditions = append(podAdditions, *routingPodAdditions)
+	}
 
-	// Step four: Create deployment and wait for it to be ready
-	deploymentStatus := provision.SyncDeploymentToCluster(workspace, componentDescriptions, routingPodAdditions, r.client, r.scheme)
+	// Step four: Prepare workspace ServiceAccount
+	saAnnotations := map[string]string{}
+	if routingPodAdditions != nil {
+		saAnnotations = routingPodAdditions.ServiceAccountAnnotations
+	}
+	serviceAcctStatus := provision.SyncServiceAccount(workspace, saAnnotations, clusterAPI)
+	if !serviceAcctStatus.Continue{
+		reqLogger.Info("Waiting for workspace ServiceAccount")
+		return reconcile.Result{Requeue: serviceAcctStatus.Requeue}, serviceAcctStatus.Err
+	}
+	serviceAcctName := serviceAcctStatus.ServiceAccountName
+
+	// Step five: Create deployment and wait for it to be ready
+	deploymentStatus := provision.SyncDeploymentToCluster(workspace, podAdditions, serviceAcctName, clusterAPI)
 	if !deploymentStatus.Continue {
 		reqLogger.Info("Waiting on deployment to be ready")
 		return reconcile.Result{Requeue: deploymentStatus.Requeue}, deploymentStatus.Err

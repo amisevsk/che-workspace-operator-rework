@@ -28,17 +28,16 @@ var routingDiffOpts = cmp.Options{
 func SyncRoutingToCluster(
 		workspace *v1alpha1.Workspace,
 		components []v1alpha1.ComponentDescription,
-		client runtimeClient.Client,
-		scheme *runtime.Scheme) RoutingProvisioningStatus {
+		clusterAPI ClusterAPI) RoutingProvisioningStatus {
 
-	specRouting, err := getSpecRouting(workspace, components, scheme)
+	specRouting, err := getSpecRouting(workspace, components, clusterAPI.Scheme)
 	if err != nil {
 		return RoutingProvisioningStatus{
 			ProvisioningStatus: ProvisioningStatus{Err: err},
 		}
 	}
 
-	clusterRouting, err := getClusterRouting(specRouting.Name, specRouting.Namespace, client)
+	clusterRouting, err := getClusterRouting(specRouting.Name, specRouting.Namespace, clusterAPI.Client)
 	if err != nil {
 		return RoutingProvisioningStatus{
 			ProvisioningStatus: ProvisioningStatus{Err: err},
@@ -46,7 +45,7 @@ func SyncRoutingToCluster(
 	}
 
 	if clusterRouting == nil {
-		err := client.Create(context.TODO(), specRouting)
+		err := clusterAPI.Client.Create(context.TODO(), specRouting)
 		return RoutingProvisioningStatus{
 			ProvisioningStatus: ProvisioningStatus{Requeue: true, Err: err},
 		}
@@ -54,7 +53,7 @@ func SyncRoutingToCluster(
 
 	if !cmp.Equal(specRouting, clusterRouting, routingDiffOpts) {
 		clusterRouting.Spec = specRouting.Spec
-		err := client.Update(context.TODO(), clusterRouting)
+		err := clusterAPI.Client.Update(context.TODO(), clusterRouting)
 		return RoutingProvisioningStatus{
 			ProvisioningStatus: ProvisioningStatus{Requeue: true, Err: err},
 		}

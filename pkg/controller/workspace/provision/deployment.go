@@ -40,21 +40,20 @@ var deploymentDiffOpts = cmp.Options{
 
 func SyncDeploymentToCluster(
 		workspace *v1alpha1.Workspace,
-		components []v1alpha1.ComponentDescription,
-		routingPodAdditions *v1alpha1.PodAdditions,
-		client runtimeClient.Client,
-		scheme *runtime.Scheme) DeploymentProvisioningStatus {
+		podAdditions []v1alpha1.PodAdditions,
+		saName string,
+		clusterAPI ClusterAPI) DeploymentProvisioningStatus {
 
 	// [design] we have to pass components and routing pod additions separately becuase we need mountsources from each
 	// component.
-	specDeployment, err := getSpecDeployment(workspace, components, routingPodAdditions, scheme)
+	specDeployment, err := getSpecDeployment(workspace, podAdditions, saName, clusterAPI.Scheme)
 	if err != nil {
 		return DeploymentProvisioningStatus{
 			ProvisioningStatus: ProvisioningStatus{Err: err},
 		}
 	}
 
-	clusterDeployment, err := getClusterDeployment(specDeployment.Name, workspace.Namespace, client)
+	clusterDeployment, err := getClusterDeployment(specDeployment.Name, workspace.Namespace, clusterAPI.Client)
 	if err != nil {
 		return DeploymentProvisioningStatus{
 			ProvisioningStatus: ProvisioningStatus{Err: err},
@@ -63,7 +62,7 @@ func SyncDeploymentToCluster(
 
 	if clusterDeployment == nil {
 		fmt.Printf("Creating deployment...\n")
-		err := client.Create(context.TODO(), specDeployment)
+		err := clusterAPI.Client.Create(context.TODO(), specDeployment)
 		return DeploymentProvisioningStatus{
 			ProvisioningStatus: ProvisioningStatus{
 				Requeue: true,
@@ -76,7 +75,7 @@ func SyncDeploymentToCluster(
 		fmt.Printf("Updating deployment...\n")
 		fmt.Printf("\n\n%s\n\n", cmp.Diff(specDeployment, clusterDeployment, deploymentDiffOpts))
 		clusterDeployment.Spec = specDeployment.Spec
-		err := client.Update(context.TODO(), clusterDeployment)
+		err := clusterAPI.Client.Update(context.TODO(), clusterDeployment)
 		return DeploymentProvisioningStatus{
 			ProvisioningStatus: ProvisioningStatus{Requeue: true, Err: err},
 		}
@@ -104,7 +103,11 @@ func checkDeploymentStatus(deployment *appsv1.Deployment) (ready bool) {
 	return false
 }
 
-func getSpecDeployment(workspace *v1alpha1.Workspace, components []v1alpha1.ComponentDescription, routingPodAdditions *v1alpha1.PodAdditions, scheme *runtime.Scheme) (*appsv1.Deployment, error) {
+func getSpecDeployment(
+		workspace *v1alpha1.Workspace,
+		podAdditionsList []v1alpha1.PodAdditions,
+		saName string,
+		scheme *runtime.Scheme) (*appsv1.Deployment, error) {
 	replicas := int32(1)
 	terminationGracePeriod := int64(1)
 	rollingUpdateParam := intstr.FromInt(1)
@@ -113,14 +116,6 @@ func getSpecDeployment(workspace *v1alpha1.Workspace, components []v1alpha1.Comp
 	if !config.ControllerCfg.IsOpenShift() {
 		uID := int64(1234)
 		user = &uID
-	}
-
-	var podAdditionsList []v1alpha1.PodAdditions
-	for _, component := range components {
-		podAdditionsList = append(podAdditionsList, component.PodAdditions)
-	}
-	if routingPodAdditions != nil {
-		podAdditionsList = append(podAdditionsList, *routingPodAdditions)
 	}
 
 	podAdditions, err := mergePodAdditions(podAdditionsList)
@@ -183,7 +178,7 @@ func getSpecDeployment(workspace *v1alpha1.Workspace, components []v1alpha1.Comp
 						RunAsUser: user,
 						FSGroup:   user,
 					},
-					ServiceAccountName:           "workspace-sa",
+					ServiceAccountName:           saName,
 					AutomountServiceAccountToken: nil,
 				},
 			},
@@ -277,8 +272,8 @@ func getPersistentVolumeClaim() corev1.Volume {
 	return pvcVolume
 }
 
-func precreateSubpathsInitContainer(workspaceId string) corev1.Container{
-	initContainer :=  corev1.Container{
+func precreateSubpathsInitContainer(workspaceId string) corev1.Container {
+	initContainer := corev1.Container{
 		Name:    "precreate-subpaths",
 		Image:   "registry.access.redhat.com/ubi8/ubi-minimal",
 		Command: []string{"/usr/bin/mkdir"},

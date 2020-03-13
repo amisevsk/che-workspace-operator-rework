@@ -16,12 +16,6 @@ func generatePrerequisites(workspace *v1alpha1.Workspace) ([]runtime.Object, err
 		return nil, err
 	}
 
-	// TODO: Need to extract Che SA to be modified; needs to be per-workspace
-	//serviceAccountName := "che-" + workspace.Status.WorkspaceId
-	// note: autoMountServiceAccount := true comes from a hardcoded value in prerequisites.go
-	autoMountServiceAccount := true
-
-
 	k8sObjects := []runtime.Object{
 		&corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
@@ -113,13 +107,6 @@ func generatePrerequisites(workspace *v1alpha1.Workspace) ([]runtime.Object, err
 					Name: "system:serviceaccounts:" + workspace.Namespace,
 				},
 			},
-		},
-		&corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "workspace-sa",
-				Namespace: workspace.Namespace,
-			},
-			AutomountServiceAccountToken: &autoMountServiceAccount,
 		},
 	}
 	return k8sObjects, nil

@@ -27,15 +27,15 @@ var componentDiffOpts = cmp.Options{
 }
 
 func SyncComponentsToCluster(
-		workspace *v1alpha1.Workspace, client runtimeClient.Client, scheme *runtime.Scheme) ComponentProvisioningStatus {
-	specComponents, err := getSpecComponents(workspace, scheme)
+		workspace *v1alpha1.Workspace, clusterAPI ClusterAPI) ComponentProvisioningStatus {
+	specComponents, err := getSpecComponents(workspace, clusterAPI.Scheme)
 	if err != nil {
 		return ComponentProvisioningStatus{
 			ProvisioningStatus: ProvisioningStatus{Err: err},
 		}
 	}
 
-	clusterComponents, err := getClusterComponents(workspace, client)
+	clusterComponents, err := getClusterComponents(workspace, clusterAPI.Client)
 	if err != nil {
 		return ComponentProvisioningStatus{
 			ProvisioningStatus: ProvisioningStatus{Err: err},
@@ -48,7 +48,7 @@ func SyncComponentsToCluster(
 	}
 
 	for _, component := range toCreate {
-		err := client.Create(context.TODO(), &component)
+		err := clusterAPI.Client.Create(context.TODO(), &component)
 		log.Info("Creating component", "component", component.Name)
 		if err != nil {
 			return ComponentProvisioningStatus{
@@ -59,7 +59,7 @@ func SyncComponentsToCluster(
 
 	for _, component := range toUpdate {
 		log.Info("Updating component", "component", component.Name)
-		err := client.Update(context.TODO(), &component)
+		err := clusterAPI.Client.Update(context.TODO(), &component)
 		if err != nil {
 			return ComponentProvisioningStatus{
 				ProvisioningStatus: ProvisioningStatus{Err: err},
@@ -69,7 +69,7 @@ func SyncComponentsToCluster(
 
 	for _, component := range toDelete {
 		log.Info("Deleting component", "component", component.Name)
-		err := client.Delete(context.TODO(), &component)
+		err := clusterAPI.Client.Delete(context.TODO(), &component)
 		if err != nil {
 			return ComponentProvisioningStatus{
 				ProvisioningStatus: ProvisioningStatus{Err: err},
