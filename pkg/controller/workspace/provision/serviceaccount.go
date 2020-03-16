@@ -28,11 +28,12 @@ func SyncServiceAccount(
 
 	specSA := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        saName,
-			Namespace:   workspace.Namespace,
+			Name:      saName,
+			Namespace: workspace.Namespace,
 		},
 		AutomountServiceAccountToken: &autoMountServiceAccount,
 	}
+
 	if len(additionalAnnotations) > 0 {
 		specSA.Annotations = map[string]string{}
 		for annotKey, annotVal := range additionalAnnotations {
@@ -94,7 +95,7 @@ func SyncServiceAccount(
 func getClusterSA(sa corev1.ServiceAccount, client runtimeClient.Client) (*corev1.ServiceAccount, error) {
 	clusterSA := &corev1.ServiceAccount{}
 	namespacedName := types.NamespacedName{
-		Name: sa.Name,
+		Name:      sa.Name,
 		Namespace: sa.Namespace,
 	}
 	err := client.Get(context.TODO(), namespacedName, clusterSA)

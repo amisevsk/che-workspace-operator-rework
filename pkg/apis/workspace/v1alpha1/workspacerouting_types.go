@@ -10,20 +10,21 @@ type WorkspaceRoutingSpec struct {
 	WorkspaceId         string                `json:"workspaceId"`
 	RoutingClass        WorkspaceRoutingClass `json:"routingClass,omitempty"`
 	IngressGlobalDomain string                `json:"ingressGlobalDomain"`
-	Endpoints   map[string][]Endpoint        `json:"endpoints"`
-	PodSelector map[string]string `json:"podSelector"'`
+	Endpoints           map[string][]Endpoint `json:"endpoints"`
+	PodSelector         map[string]string     `json:"podSelector"`
 }
 
 type WorkspaceRoutingClass string
+
 const (
-	WorkspaceRoutingDefault WorkspaceRoutingClass = ""
+	WorkspaceRoutingDefault        WorkspaceRoutingClass = ""
 	WorkspaceRoutingOpenShiftOauth WorkspaceRoutingClass = "openshift-oauth"
 )
 
 // WorkspaceRoutingStatus defines the observed state of WorkspaceRouting
 // +k8s:openapi-gen=true
 type WorkspaceRoutingStatus struct {
-	PodAdditions     *PodAdditions                `json:"podAdditions,omitempty"`
+	PodAdditions     *PodAdditions               `json:"podAdditions,omitempty"`
 	ExposedEndpoints map[string][]ExposedEndpoint `json:"exposedEndpoints,omitempty"`
 	Ready            bool                         `json:"ready"`
 }

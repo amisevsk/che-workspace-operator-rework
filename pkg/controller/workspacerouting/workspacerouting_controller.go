@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/che-incubator/che-workspace-operator/internal/cluster"
 	workspacev1alpha1 "github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
+	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspacerouting/solvers"
 	"github.com/google/go-cmp/cmp"
 	routeV1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -22,14 +23,6 @@ import (
 )
 
 var log = logf.Log.WithName("controller_workspacerouting")
-
-type RoutingObjects struct {
-	Services         []corev1.Service
-	Ingresses        []v1beta1.Ingress
-	Routes           []routeV1.Route
-	PodAdditions     *workspacev1alpha1.PodAdditions
-	ExposedEndpoints map[string][]workspacev1alpha1.ExposedEndpoint
-}
 
 // Add creates a new WorkspaceRouting Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -121,32 +114,64 @@ func (r *ReconcileWorkspaceRouting) Reconcile(request reconcile.Request) (reconc
 		return reconcile.Result{}, err
 	}
 
-	routingObjects := GetSpecObjects(instance.Spec, instance.Namespace)
+	workspaceMeta := solvers.WorkspaceMetadata{
+		WorkspaceId:         instance.Spec.WorkspaceId,
+		Namespace:           instance.Namespace,
+		PodSelector:         instance.Spec.PodSelector,
+		IngressGlobalDomain: instance.Spec.IngressGlobalDomain,
+	}
+
+	solver, err := getSolverForRoutingClass(instance.Spec.RoutingClass)
+	if err != nil {
+		// TODO: This is a failure state that should be propagated
+		return reconcile.Result{}, err
+	}
+
+	routingObjects := solver.GetSpecObjects(instance.Spec, workspaceMeta)
 	services := routingObjects.Services
 	for idx := range services {
-		controllerutil.SetControllerReference(instance, &services[idx], r.scheme)
+		err := controllerutil.SetControllerReference(instance, &services[idx], r.scheme)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 	ingresses := routingObjects.Ingresses
 	for idx := range ingresses {
-		controllerutil.SetControllerReference(instance, &ingresses[idx], r.scheme)
+		err := controllerutil.SetControllerReference(instance, &ingresses[idx], r.scheme)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+	routes := routingObjects.Routes
+	for idx := range routes {
+		err := controllerutil.SetControllerReference(instance, &routes[idx], r.scheme)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	servicesInSync, err := r.syncServices(instance, services)
 	if err != nil || !servicesInSync {
-		reqLogger.Info(fmt.Sprintf("Services not in sync: %w", err))
+		reqLogger.Info("Services not in sync")
 		return reconcile.Result{Requeue: true}, err
 	}
 
 	ingressesInSync, err := r.syncIngresses(instance, ingresses)
 	if err != nil || !ingressesInSync {
-		reqLogger.Info(fmt.Sprintf("Ingresses not in sync: %w", err))
+		reqLogger.Info("Ingresses not in sync")
+		return reconcile.Result{Requeue: true}, err
+	}
+
+	routesInSync, err := r.syncRoutes(instance, routes)
+	if err != nil || !routesInSync {
+		reqLogger.Info("Routes not in sync")
 		return reconcile.Result{Requeue: true}, err
 	}
 
 	return reconcile.Result{}, r.reconcileStatus(instance, routingObjects)
 }
 
-func (r *ReconcileWorkspaceRouting) reconcileStatus(instance *workspacev1alpha1.WorkspaceRouting, routingObjects RoutingObjects) error {
+func (r *ReconcileWorkspaceRouting) reconcileStatus(instance *workspacev1alpha1.WorkspaceRouting, routingObjects solvers.RoutingObjects) error {
 	if instance.Status.Ready && cmp.Equal(instance.Status.PodAdditions, routingObjects.PodAdditions) && cmp.Equal(instance.Status.ExposedEndpoints, routingObjects.ExposedEndpoints) {
 		return nil
 	}
@@ -154,4 +179,15 @@ func (r *ReconcileWorkspaceRouting) reconcileStatus(instance *workspacev1alpha1.
 	instance.Status.PodAdditions = routingObjects.PodAdditions
 	instance.Status.ExposedEndpoints = routingObjects.ExposedEndpoints
 	return r.client.Status().Update(context.TODO(), instance)
+}
+
+func getSolverForRoutingClass(routingClass workspacev1alpha1.WorkspaceRoutingClass) (solvers.RoutingSolver, error) {
+	switch routingClass {
+	case workspacev1alpha1.WorkspaceRoutingDefault:
+		return &solvers.BasicSolver{}, nil
+	case workspacev1alpha1.WorkspaceRoutingOpenShiftOauth:
+		return &solvers.OpenShiftOAuthSolver{}, nil
+	default:
+		return nil, fmt.Errorf("routing class %s not supported", routingClass)
+	}
 }

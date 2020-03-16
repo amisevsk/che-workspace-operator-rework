@@ -16,7 +16,7 @@ var ingressDiffOpts = cmp.Options{
 }
 
 func (r *ReconcileWorkspaceRouting) syncIngresses(routing *v1alpha1.WorkspaceRouting, specIngresses []v1beta1.Ingress) (ok bool, err error) {
-	servicesInSync := true
+	ingressesInSync := true
 
 	clusterIngresses, err := r.getClusterIngresses(routing)
 	if err != nil {
@@ -24,37 +24,37 @@ func (r *ReconcileWorkspaceRouting) syncIngresses(routing *v1alpha1.WorkspaceRou
 	}
 
 	toDelete := getIngressesToDelete(clusterIngresses, specIngresses)
-	for _, service := range toDelete {
-		err := r.client.Delete(context.TODO(), &service)
+	for _, ingress := range toDelete {
+		err := r.client.Delete(context.TODO(), &ingress)
 		if err != nil {
 			return false, err
 		}
-		servicesInSync = false
+		ingressesInSync = false
 	}
 
 	for _, specIngress := range specIngresses {
 		if contains, idx := listContainsIngressByName(specIngress, clusterIngresses); contains {
-			clusterService := clusterIngresses[idx]
-			if !cmp.Equal(specIngress, clusterService, ingressDiffOpts) {
-				fmt.Printf("\n\n%s\n\n", cmp.Diff(specIngress, clusterIngresses, ingressDiffOpts))
-				// Update service's spec
-				clusterService.Spec = specIngress.Spec
-				err := r.client.Update(context.TODO(), &clusterService)
+			clusterIngress := clusterIngresses[idx]
+			if !cmp.Equal(specIngress, clusterIngress, ingressDiffOpts) {
+				fmt.Printf("\n\n%s\n\n", cmp.Diff(specIngress, clusterIngress, ingressDiffOpts))
+				// Update ingress's spec
+				clusterIngress.Spec = specIngress.Spec
+				err := r.client.Update(context.TODO(), &clusterIngress)
 				if err != nil {
 					return false, err
 				}
-				servicesInSync = false
+				ingressesInSync = false
 			}
 		} else {
 			err := r.client.Create(context.TODO(), &specIngress)
 			if err != nil {
 				return false, err
 			}
-			servicesInSync = false
+			ingressesInSync = false
 		}
 	}
 
-	return servicesInSync, nil
+	return ingressesInSync, nil
 }
 
 func (r *ReconcileWorkspaceRouting) getClusterIngresses(routing *v1alpha1.WorkspaceRouting) ([]v1beta1.Ingress, error) {
@@ -74,10 +74,10 @@ func (r *ReconcileWorkspaceRouting) getClusterIngresses(routing *v1alpha1.Worksp
 	return found.Items, nil
 }
 
-func getIngressesToDelete(clusterIngresses, specServices []v1beta1.Ingress) []v1beta1.Ingress {
+func getIngressesToDelete(clusterIngresses, specIngresses []v1beta1.Ingress) []v1beta1.Ingress {
 	var toDelete []v1beta1.Ingress
 	for _, clusterIngress := range clusterIngresses {
-		if contains, _ := listContainsIngressByName(clusterIngress, specServices); !contains {
+		if contains, _ := listContainsIngressByName(clusterIngress, specIngresses); !contains {
 			toDelete = append(toDelete, clusterIngress)
 		}
 	}
@@ -85,8 +85,8 @@ func getIngressesToDelete(clusterIngresses, specServices []v1beta1.Ingress) []v1
 }
 
 func listContainsIngressByName(query v1beta1.Ingress, list []v1beta1.Ingress) (exists bool, idx int) {
-	for idx, listService := range list {
-		if query.Name == listService.Name {
+	for idx, listIngress := range list {
+		if query.Name == listIngress.Name {
 			return true, idx
 		}
 	}

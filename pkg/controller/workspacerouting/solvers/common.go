@@ -1,4 +1,4 @@
-package workspacerouting
+package solvers
 
 import (
 	"fmt"
@@ -6,31 +6,21 @@ import (
 	"github.com/che-incubator/che-workspace-operator/pkg/common"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"strconv"
 )
 
-var ingressAnnotations = map[string]string{
-	"kubernetes.io/ingress.class":                "nginx",
-	"nginx.ingress.kubernetes.io/rewrite-target": "/",
-	"nginx.ingress.kubernetes.io/ssl-redirect":   "false",
+type WorkspaceMetadata struct {
+	WorkspaceId     string
+	Namespace       string
+	PodSelector     map[string]string
+	IngressGlobalDomain string
 }
 
-func GetSpecObjects(spec v1alpha1.WorkspaceRoutingSpec, namespace string) RoutingObjects {
-	services := getServicesForSpec(spec, namespace)
-	ingresses, exposedEndpoints := getIngressesForSpec(spec, namespace)
-
-	return RoutingObjects{
-		Services: services,
-		Ingresses: ingresses,
-		ExposedEndpoints: exposedEndpoints,
-	}
-}
-
-func getServicesForSpec(spec v1alpha1.WorkspaceRoutingSpec, namespace string) []corev1.Service {
+func getServicesForEndpoints(endpoints map[string][]v1alpha1.Endpoint, workspaceMeta WorkspaceMetadata) []corev1.Service {
 	var servicePorts []corev1.ServicePort
-	for _, machineEndpoints := range spec.Endpoints {
+	for _, machineEndpoints := range endpoints {
 		for _, endpoint := range machineEndpoints {
 
 			if endpoint.Attributes[v1alpha1.DISCOVERABLE_ATTRIBUTE] != "true" {
@@ -47,27 +37,27 @@ func getServicesForSpec(spec v1alpha1.WorkspaceRoutingSpec, namespace string) []
 
 	return []corev1.Service{
 		{
-			ObjectMeta: v1.ObjectMeta{
-				Name:      "service-" + spec.WorkspaceId, // TODO?
-				Namespace: namespace,
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "service-" + workspaceMeta.WorkspaceId, // TODO?
+				Namespace: workspaceMeta.Namespace,
 				Labels: map[string]string{
-					"app": spec.WorkspaceId,
+					"app": workspaceMeta.WorkspaceId,
 				},
 			},
 			Spec: corev1.ServiceSpec{
 				Ports:    servicePorts,
-				Selector: spec.PodSelector,
+				Selector: workspaceMeta.PodSelector,
 				Type:     corev1.ServiceTypeClusterIP,
 			},
 		},
 	}
 }
 
-func getIngressesForSpec(spec v1alpha1.WorkspaceRoutingSpec, namespace string) ([]v1beta1.Ingress, map[string][]v1alpha1.ExposedEndpoint) {
+func getIngressesForSpec(endpoints map[string][]v1alpha1.Endpoint, workspaceMeta WorkspaceMetadata) ([]v1beta1.Ingress, map[string][]v1alpha1.ExposedEndpoint) {
 	var ingresses []v1beta1.Ingress
 	exposedEndpoints := map[string][]v1alpha1.ExposedEndpoint{}
 
-	for machineName, machineEndpoints := range spec.Endpoints {
+	for machineName, machineEndpoints := range endpoints {
 		for _, endpoint := range machineEndpoints {
 			if endpoint.Attributes[v1alpha1.PUBLIC_ENDPOINT_ATTRIBUTE] != "true" {
 				//continue // TODO: Unclear how this is supposed to work?
@@ -77,16 +67,15 @@ func getIngressesForSpec(spec v1alpha1.WorkspaceRoutingSpec, namespace string) (
 			var targetEndpoint intstr.IntOrString
 			targetEndpoint = intstr.FromInt(int(endpoint.Port))
 
-
 			endpointName := common.EndpointName(endpoint.Name)
 			ingressHostname := fmt.Sprintf("%s-%s-%s.%s",
-				spec.WorkspaceId, endpointName, strconv.FormatInt(endpoint.Port, 10), spec.IngressGlobalDomain)
+				workspaceMeta.WorkspaceId, endpointName, strconv.FormatInt(endpoint.Port, 10), workspaceMeta.IngressGlobalDomain)
 			ingresses = append(ingresses, v1beta1.Ingress{
-				ObjectMeta: v1.ObjectMeta{
-					Name:      fmt.Sprintf("%s-%s", spec.WorkspaceId, endpointName),
-					Namespace: namespace,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-%s", workspaceMeta.WorkspaceId, endpointName),
+					Namespace: workspaceMeta.Namespace,
 					Labels: map[string]string{
-						"app": spec.WorkspaceId,
+						"app": workspaceMeta.WorkspaceId,
 					},
 					Annotations: ingressAnnotations,
 				},
@@ -99,7 +88,7 @@ func getIngressesForSpec(spec v1alpha1.WorkspaceRoutingSpec, namespace string) (
 									Paths: []v1beta1.HTTPIngressPath{
 										{
 											Backend: v1beta1.IngressBackend{
-												ServiceName: "service-" + spec.WorkspaceId, // TODO: Copied from service func above
+												ServiceName: "service-" + workspaceMeta.WorkspaceId, // TODO: Copied from service func above
 												ServicePort: targetEndpoint,
 											},
 										},

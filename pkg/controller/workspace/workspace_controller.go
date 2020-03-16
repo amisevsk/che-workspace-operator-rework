@@ -178,7 +178,7 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{Requeue: routingStatus.Requeue}, routingStatus.Err
 	}
 
-	// Step 2.5 setup runtime annotation (TODO: use configmap)
+	// Step 2.5: setup runtime annotation (TODO: use configmap)
 	cheRuntime, err := wsRuntime.ConstructRuntimeAnnotation(componentDescriptions, routingStatus.ExposedEndpoints)
 	workspaceStatus := provision.SyncWorkspaceStatus(workspace, cheRuntime, clusterAPI)
 	if !workspaceStatus.Continue {
