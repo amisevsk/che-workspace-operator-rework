@@ -31,3 +31,28 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: "che-workspace-operator"
+          ports:
+            - name: webhook-server
+              containerPort: 8443
+          volumeMounts:
+            - name: webhook-tls-certs
+              mountPath: /tmp/k8s-webhook-server/serving-certs
+              readOnly: true
+      volumes:
+        - name: webhook-tls-certs
+          secret:
+            secretName: webhook-server-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: che-workspace-controller
+  name: workspace-controller
+spec:
+  ports:
+    - targetPort: webhook-server
+      protocol: TCP
+      port: 443
+  selector:
+    name: che-workspace-operator

@@ -1,11 +1,12 @@
-kind: RoleBinding
+kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: che-workspace-operator
 subjects:
 - kind: ServiceAccount
   name: che-workspace-operator
+  namespace: che-workspace-controller
 roleRef:
-  kind: Role
+  kind: ClusterRole
   name: che-workspace-operator
   apiGroup: rbac.authorization.k8s.io

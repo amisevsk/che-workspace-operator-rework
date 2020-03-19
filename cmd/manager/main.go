@@ -13,6 +13,7 @@ import (
 
 	"github.com/che-incubator/che-workspace-operator/pkg/apis"
 	"github.com/che-incubator/che-workspace-operator/pkg/controller"
+	"github.com/che-incubator/che-workspace-operator/pkg/webhook"
 	"github.com/che-incubator/che-workspace-operator/version"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
@@ -112,6 +113,12 @@ func main() {
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr); err != nil {
 		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	// Setup all webhooks
+	if err := webhook.SetUpWebhooks(mgr, ctx); err != nil {
+		log.Error(err, "unable to register webhooks to the manager")
 		os.Exit(1)
 	}
 
