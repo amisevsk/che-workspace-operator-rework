@@ -12,6 +12,8 @@
 
 package config
 
+import "k8s.io/api/admissionregistration/v1beta1"
+
 // Internal constants
 const (
 	//default URL for accessing Che Rest API Emulator from Workspace containers
@@ -50,10 +52,10 @@ const (
 )
 
 // Constants for che-rest-apis
-const(
+const (
 	// Attribute of Runtime Machine to mark source of the container.
 	RestApisContainerSourceAttribute = "source"
-	RestApisPluginMachineAttribute = "plugin"
+	RestApisPluginMachineAttribute   = "plugin"
 
 	// Mark containers applied to workspace with help recipe definition.
 	RestApisRecipeSourceContainerAttribute = "recipe"
@@ -83,5 +85,28 @@ const(
 
 	// Workspace command attributes that indicates with which component it is associated. */
 	ComponentAliasCommandAttribute = "componentAlias"
+)
 
+// constants for webhook
+const (
+	// The address that the webhook will host on
+	WebhookServerHost = "0.0.0.0"
+
+	// The port that the webhook will host on
+	WebhookServerPort = 8443
+
+	// The directory where the certificate can be found by the webhook server
+	WebhookServerCertDir = "/tmp/k8s-webhook-server/serving-certs"
+)
+
+// constants for webhook configuration
+const (
+	// The name of the workspace admission hook
+	MutateWebhookCfgName = "mutate-workspace-admission-hooks"
+
+	// The webhooks path on the server
+	MutateWebhookPath = "/mutate-workspaces"
+
+	// Policy on webhook failure
+	MutateWebhookFailurePolicy = v1beta1.Fail
 )
