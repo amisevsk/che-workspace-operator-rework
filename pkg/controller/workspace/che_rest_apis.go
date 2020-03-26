@@ -47,12 +47,12 @@ func getCheRestApisComponent(workspaceName, workspaceId, namespace string) v1alp
 					Attributes: map[string]string{
 						config.RestApisContainerSourceAttribute: config.RestApisRecipeSourceToolAttribute,
 					},
-					Ports:      []int{cheRestApisPort},
+					Ports: []int{cheRestApisPort},
 				},
 			},
 			Endpoints: []v1alpha1.Endpoint{
 				{
-					Attributes: map[v1alpha1.EndpointAttribute]string {
+					Attributes: map[v1alpha1.EndpointAttribute]string{
 						v1alpha1.PUBLIC_ENDPOINT_ATTRIBUTE: "false",
 						//v1alpha1.TYPE_ENDPOINT_ATTRIBUTE: "ide",
 						v1alpha1.PROTOCOL_ENDPOINT_ATTRIBUTE: "tcp",

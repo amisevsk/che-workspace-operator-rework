@@ -31,7 +31,7 @@ func adaptResourcesFromString(memLimit string) (corev1.ResourceRequirements, err
 		return corev1.ResourceRequirements{}, err
 	}
 	resources := corev1.ResourceRequirements{
-		Limits:   corev1.ResourceList{
+		Limits: corev1.ResourceList{
 			corev1.ResourceMemory: memLimitQuantity,
 		},
 		Requests: nil,
@@ -40,14 +40,13 @@ func adaptResourcesFromString(memLimit string) (corev1.ResourceRequirements, err
 	return resources, nil
 }
 
-
 func GetProjectSourcesVolumeMount(workspaceId string) corev1.VolumeMount {
 	volumeName := config.ControllerCfg.GetWorkspacePVCName()
 
 	projectsVolumeMount := corev1.VolumeMount{
-		Name:             volumeName,
-		MountPath:        config.DefaultProjectsSourcesRoot,
-		SubPath:          workspaceId + config.DefaultProjectsSourcesRoot,
+		Name:      volumeName,
+		MountPath: config.DefaultProjectsSourcesRoot,
+		SubPath:   workspaceId + config.DefaultProjectsSourcesRoot,
 	}
 
 	return projectsVolumeMount

@@ -18,4 +18,3 @@ type RoutingObjects struct {
 type RoutingSolver interface {
 	GetSpecObjects(spec v1alpha1.WorkspaceRoutingSpec, workspaceMeta WorkspaceMetadata) RoutingObjects
 }
-

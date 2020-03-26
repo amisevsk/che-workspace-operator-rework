@@ -39,10 +39,10 @@ var deploymentDiffOpts = cmp.Options{
 }
 
 func SyncDeploymentToCluster(
-		workspace *v1alpha1.Workspace,
-		podAdditions []v1alpha1.PodAdditions,
-		saName string,
-		clusterAPI ClusterAPI) DeploymentProvisioningStatus {
+	workspace *v1alpha1.Workspace,
+	podAdditions []v1alpha1.PodAdditions,
+	saName string,
+	clusterAPI ClusterAPI) DeploymentProvisioningStatus {
 
 	// [design] we have to pass components and routing pod additions separately becuase we need mountsources from each
 	// component.
@@ -104,10 +104,10 @@ func checkDeploymentStatus(deployment *appsv1.Deployment) (ready bool) {
 }
 
 func getSpecDeployment(
-		workspace *v1alpha1.Workspace,
-		podAdditionsList []v1alpha1.PodAdditions,
-		saName string,
-		scheme *runtime.Scheme) (*appsv1.Deployment, error) {
+	workspace *v1alpha1.Workspace,
+	podAdditionsList []v1alpha1.PodAdditions,
+	saName string,
+	scheme *runtime.Scheme) (*appsv1.Deployment, error) {
 	replicas := int32(1)
 	terminationGracePeriod := int64(1)
 	rollingUpdateParam := intstr.FromInt(1)

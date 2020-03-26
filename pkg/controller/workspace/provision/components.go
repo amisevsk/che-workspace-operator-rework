@@ -27,7 +27,7 @@ var componentDiffOpts = cmp.Options{
 }
 
 func SyncComponentsToCluster(
-		workspace *v1alpha1.Workspace, clusterAPI ClusterAPI) ComponentProvisioningStatus {
+	workspace *v1alpha1.Workspace, clusterAPI ClusterAPI) ComponentProvisioningStatus {
 	specComponents, err := getSpecComponents(workspace, clusterAPI.Scheme)
 	if err != nil {
 		return ComponentProvisioningStatus{
@@ -120,7 +120,7 @@ func getSpecComponents(workspace *v1alpha1.Workspace, scheme *runtime.Scheme) ([
 		Spec: v1alpha1.WorkspaceComponentSpec{
 			WorkspaceId: workspace.Status.WorkspaceId,
 			Components:  dockerComponents,
-			Commands: workspace.Spec.Devfile.Commands,
+			Commands:    workspace.Spec.Devfile.Commands,
 		},
 	}
 	pluginResolver := v1alpha1.Component{
@@ -134,7 +134,7 @@ func getSpecComponents(workspace *v1alpha1.Workspace, scheme *runtime.Scheme) ([
 		Spec: v1alpha1.WorkspaceComponentSpec{
 			WorkspaceId: workspace.Status.WorkspaceId,
 			Components:  pluginComponents,
-			Commands: workspace.Spec.Devfile.Commands,
+			Commands:    workspace.Spec.Devfile.Commands,
 		},
 	}
 	err = controllerutil.SetControllerReference(workspace, &dockerResolver, scheme)

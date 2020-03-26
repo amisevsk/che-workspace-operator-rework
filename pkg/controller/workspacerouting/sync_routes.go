@@ -60,7 +60,7 @@ func (r *ReconcileWorkspaceRouting) syncRoutes(routing *v1alpha1.WorkspaceRoutin
 
 func (r *ReconcileWorkspaceRouting) getClusterRoutes(routing *v1alpha1.WorkspaceRouting) ([]routeV1.Route, error) {
 	found := &routeV1.RouteList{}
-	labelSelector, err := labels.Parse(fmt.Sprintf("app=%s", routing.Spec.WorkspaceId + "oauth")) // TODO This is manually synced with what's created, that's bad.
+	labelSelector, err := labels.Parse(fmt.Sprintf("app=%s", routing.Spec.WorkspaceId+"oauth")) // TODO This is manually synced with what's created, that's bad.
 	if err != nil {
 		return nil, err
 	}

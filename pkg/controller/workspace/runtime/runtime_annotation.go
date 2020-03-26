@@ -13,9 +13,9 @@ func ConstructRuntimeAnnotation(components []v1alpha1.ComponentDescription, endp
 	commands := getWorkspaceCommands(components)
 
 	runtime := v1alpha1.CheWorkspaceRuntime{
-		ActiveEnv:    defaultEnv,
-		Commands:     commands,
-		Machines:     machines,
+		ActiveEnv: defaultEnv,
+		Commands:  commands,
+		Machines:  machines,
 	}
 
 	runtimeJSON, err := json.Marshal(runtime)
@@ -28,7 +28,7 @@ func ConstructRuntimeAnnotation(components []v1alpha1.ComponentDescription, endp
 func getMachinesAnnotation(components []v1alpha1.ComponentDescription, endpoints map[string][]v1alpha1.ExposedEndpoint) map[string]v1alpha1.CheWorkspaceMachine {
 	machines := map[string]v1alpha1.CheWorkspaceMachine{}
 
-	for _, component := range components{
+	for _, component := range components {
 		for containerName, container := range component.ComponentMetadata.Containers {
 			servers := map[string]v1alpha1.CheWorkspaceServer{}
 			// TODO: This is likely not a good choice for matching, since it'll fail if container name does not match an endpoint key
@@ -37,7 +37,7 @@ func getMachinesAnnotation(components []v1alpha1.ComponentDescription, endpoints
 
 				servers[endpoint.Name] = v1alpha1.CheWorkspaceServer{
 					Attributes: endpoint.Attributes,
-					Status:     v1alpha1.RunningServerStatus, // TODO: This is just set so the circles are green
+					Status:     v1alpha1.RunningServerStatus,                   // TODO: This is just set so the circles are green
 					URL:        fmt.Sprintf("%s://%s", protocol, endpoint.Url), // TODO: This could potentially be done when the endpoint is created (i.e. include protocol in endpoint.Url)
 				}
 			}

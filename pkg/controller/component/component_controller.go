@@ -59,7 +59,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		OwnerType:    &workspacev1alpha1.Component{},
 	})
 
-
 	return nil
 }
 

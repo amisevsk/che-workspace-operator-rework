@@ -10,7 +10,7 @@ var ingressAnnotations = map[string]string{
 	"nginx.ingress.kubernetes.io/ssl-redirect":   "false",
 }
 
-type BasicSolver struct {}
+type BasicSolver struct{}
 
 var _ RoutingSolver = (*BasicSolver)(nil)
 
@@ -19,9 +19,8 @@ func (s *BasicSolver) GetSpecObjects(spec v1alpha1.WorkspaceRoutingSpec, workspa
 	ingresses, exposedEndpoints := getIngressesForSpec(spec.Endpoints, workspaceMeta)
 
 	return RoutingObjects{
-		Services: services,
-		Ingresses: ingresses,
+		Services:         services,
+		Ingresses:        ingresses,
 		ExposedEndpoints: exposedEndpoints,
 	}
 }
-

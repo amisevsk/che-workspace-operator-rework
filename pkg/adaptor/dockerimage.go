@@ -117,7 +117,7 @@ func adaptVolumesMountsFromDevfile(workspaceId string, devfileVolumes []v1alpha1
 	for _, devfileVolume := range devfileVolumes {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      volumeName,
-			SubPath: fmt.Sprintf("%s/%s/", workspaceId, devfileVolume.Name),
+			SubPath:   fmt.Sprintf("%s/%s/", workspaceId, devfileVolume.Name),
 			MountPath: devfileVolume.ContainerPath,
 		})
 	}

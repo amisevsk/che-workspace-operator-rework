@@ -12,9 +12,9 @@ import (
 )
 
 type WorkspaceMetadata struct {
-	WorkspaceId     string
-	Namespace       string
-	PodSelector     map[string]string
+	WorkspaceId         string
+	Namespace           string
+	PodSelector         map[string]string
 	IngressGlobalDomain string
 }
 

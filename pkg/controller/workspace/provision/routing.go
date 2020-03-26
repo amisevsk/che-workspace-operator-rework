@@ -26,9 +26,9 @@ var routingDiffOpts = cmp.Options{
 }
 
 func SyncRoutingToCluster(
-		workspace *v1alpha1.Workspace,
-		components []v1alpha1.ComponentDescription,
-		clusterAPI ClusterAPI) RoutingProvisioningStatus {
+	workspace *v1alpha1.Workspace,
+	components []v1alpha1.ComponentDescription,
+	clusterAPI ClusterAPI) RoutingProvisioningStatus {
 
 	specRouting, err := getSpecRouting(workspace, components, clusterAPI.Scheme)
 	if err != nil {
@@ -62,25 +62,25 @@ func SyncRoutingToCluster(
 	if !clusterRouting.Status.Ready {
 		return RoutingProvisioningStatus{
 			ProvisioningStatus: ProvisioningStatus{
-				Continue:              false,
-				Requeue:               false,
+				Continue: false,
+				Requeue:  false,
 			},
 		}
 	}
 
 	return RoutingProvisioningStatus{
 		ProvisioningStatus: ProvisioningStatus{
-			Continue:              clusterRouting.Status.Ready,
+			Continue: clusterRouting.Status.Ready,
 		},
-		PodAdditions:       clusterRouting.Status.PodAdditions,
-		ExposedEndpoints:   clusterRouting.Status.ExposedEndpoints,
+		PodAdditions:     clusterRouting.Status.PodAdditions,
+		ExposedEndpoints: clusterRouting.Status.ExposedEndpoints,
 	}
 }
 
 func getSpecRouting(
-		workspace *v1alpha1.Workspace,
-		componentDescriptions []v1alpha1.ComponentDescription,
-		scheme *runtime.Scheme) (*v1alpha1.WorkspaceRouting, error) {
+	workspace *v1alpha1.Workspace,
+	componentDescriptions []v1alpha1.ComponentDescription,
+	scheme *runtime.Scheme) (*v1alpha1.WorkspaceRouting, error) {
 
 	endpoints := map[string][]v1alpha1.Endpoint{}
 	for _, desc := range componentDescriptions {

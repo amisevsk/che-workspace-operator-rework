@@ -202,7 +202,7 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 		saAnnotations = routingPodAdditions.ServiceAccountAnnotations
 	}
 	serviceAcctStatus := provision.SyncServiceAccount(workspace, saAnnotations, clusterAPI)
-	if !serviceAcctStatus.Continue{
+	if !serviceAcctStatus.Continue {
 		reqLogger.Info("Waiting for workspace ServiceAccount")
 		return reconcile.Result{Requeue: serviceAcctStatus.Requeue}, serviceAcctStatus.Err
 	}

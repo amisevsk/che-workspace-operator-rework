@@ -113,4 +113,3 @@ func isArtifactsBrokerNecessary(metas []model.PluginMeta) bool {
 	}
 	return false
 }
-

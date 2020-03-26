@@ -22,7 +22,7 @@ const (
 	DefaultProjectsSourcesRoot = "/projects"
 
 	DefaultPluginsVolumeName = "plugins"
-	PluginsMountPath = "/plugins"
+	PluginsMountPath         = "/plugins"
 
 	CheOriginalName = "workspace"
 

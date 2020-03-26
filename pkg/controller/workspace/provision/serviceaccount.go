@@ -19,9 +19,9 @@ type ServiceAcctProvisioningStatus struct {
 }
 
 func SyncServiceAccount(
-		workspace *v1alpha1.Workspace,
-		additionalAnnotations map[string]string,
-		clusterAPI ClusterAPI) ServiceAcctProvisioningStatus {
+	workspace *v1alpha1.Workspace,
+	additionalAnnotations map[string]string,
+	clusterAPI ClusterAPI) ServiceAcctProvisioningStatus {
 	// note: autoMountServiceAccount := true comes from a hardcoded value in prerequisites.go
 	autoMountServiceAccount := true
 	saName := "che-" + workspace.Status.WorkspaceId
