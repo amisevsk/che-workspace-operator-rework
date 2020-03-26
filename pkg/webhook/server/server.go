@@ -11,25 +11,30 @@
 package server
 
 import (
-	"io/ioutil"
-	"os"
-
 	"github.com/che-incubator/che-workspace-operator/internal/cluster"
 	"github.com/che-incubator/che-workspace-operator/pkg/config"
+	"io/ioutil"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
+const (
+	webhookServerHost    = "0.0.0.0"
+	webhookServerPort    = 8443
+	webhookServerCertDir = "/tmp/k8s-webhook-server/serving-certs"
+)
+
 var log = logf.Log.WithName("webhook.server")
 
-// CABundle contains the contents of the ca cert
 var CABundle []byte
 
-// ConfigureWebhookServer sets up the webhook server if webhooks and certs are available
 func ConfigureWebhookServer(mgr manager.Manager) (bool, error) {
-	log.Info("Checking if webhook configuration is enabled")
+	if config.ControllerCfg.GetWebhooksEnabled() == "false" {
+		return false, nil
+	}
+
 	enabled, err := cluster.IsWebhookConfigurationEnabled()
-	log.Info("Finished checking cluster")
 
 	if err != nil {
 		log.Info("ERROR: Could not evaluate if admission webhook configurations are available", "error", err)
@@ -43,21 +48,19 @@ func ConfigureWebhookServer(mgr manager.Manager) (bool, error) {
 		return false, nil
 	}
 
-	log.Info("Attempting to read CA cert")
-	CABundle, err = ioutil.ReadFile(config.WebhookServerCertDir + "/ca.crt")
+	CABundle, err = ioutil.ReadFile(webhookServerCertDir + "/ca.crt")
 	if os.IsNotExist(err) {
 		log.Info("CA certificate is not found. Webhook server is not set up")
 		return false, nil
 	}
 	if err != nil {
-		log.Info("Recieved error when trying to read CA certificate")
 		return false, err
 	}
 
 	log.Info("Setting up webhook server")
-	mgr.GetWebhookServer().Port = config.WebhookServerPort
-	mgr.GetWebhookServer().Host = config.WebhookServerHost
-	mgr.GetWebhookServer().CertDir = config.WebhookServerCertDir
+	mgr.GetWebhookServer().Port = webhookServerPort
+	mgr.GetWebhookServer().Host = webhookServerHost
+	mgr.GetWebhookServer().CertDir = webhookServerCertDir
 
 	return true, nil
 }

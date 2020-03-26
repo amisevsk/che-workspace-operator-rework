@@ -9,41 +9,46 @@
 // Contributors:
 //   Red Hat, Inc. - initial API and implementation
 //
-package creator
+package workspace
 
 import (
-	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	"github.com/che-incubator/che-workspace-operator/pkg/webhook/server"
 	"k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func buildMutateWebhookCfg() *v1beta1.MutatingWebhookConfiguration {
-	mutateWebhookFailurePolicy := config.MutateWebhookFailurePolicy
-	mutateWebhookPath := config.MutateWebhookPath
-	return &v1beta1.MutatingWebhookConfiguration{
+const (
+	validateWebhookCfgName       = "workspace.che.eclipse.org"
+	validateWebhookPath          = "/validate"
+	validateWebhookFailurePolicy = v1beta1.Fail
+)
+
+func buildValidatingWebhookCfg() *v1beta1.ValidatingWebhookConfiguration {
+	validateWebhookFailurePolicy := validateWebhookFailurePolicy
+	validateWebhookPath := validateWebhookPath
+	return &v1beta1.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: config.MutateWebhookCfgName,
+			Name: validateWebhookCfgName,
 		},
-		Webhooks: []v1beta1.MutatingWebhook{
+		Webhooks: []v1beta1.ValidatingWebhook{
 			{
-				Name:          "mutate-workspaces.che-workspace-controller.svc",
-				FailurePolicy: &mutateWebhookFailurePolicy,
+				Name:          "validate-exec.che-workspace-controller.svc",
+				FailurePolicy: &validateWebhookFailurePolicy,
 				ClientConfig: v1beta1.WebhookClientConfig{
 					Service: &v1beta1.ServiceReference{
 						Name:      "workspace-controller",
 						Namespace: "che-workspace-controller",
-						Path:      &mutateWebhookPath,
+						Path:      &validateWebhookPath,
 					},
 					CABundle: server.CABundle,
 				},
 				Rules: []v1beta1.RuleWithOperations{
 					{
-						Operations: []v1beta1.OperationType{v1beta1.Create, v1beta1.Update},
+						Operations: []v1beta1.OperationType{v1beta1.Connect},
 						Rule: v1beta1.Rule{
-							APIGroups:   []string{"workspace.che.eclipse.org"},
-							APIVersions: []string{"v1alpha1"},
-							Resources:   []string{"workspaces"},
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"pods/exec"},
 						},
 					},
 				},

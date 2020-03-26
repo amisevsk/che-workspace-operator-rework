@@ -110,6 +110,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	log.Info("Setting up Controllers.")
+
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr); err != nil {
 		log.Error(err, "")
@@ -117,6 +119,7 @@ func main() {
 	}
 
 	// Setup all webhooks
+	log.Info("Setting up webhooks")
 	if err := webhook.SetUpWebhooks(mgr, ctx); err != nil {
 		log.Error(err, "unable to register webhooks to the manager")
 		os.Exit(1)
@@ -128,6 +131,7 @@ func main() {
 	//	log.Info("Could not generate and serve custom resource metrics", "error", err.Error())
 	//}
 
+	log.Info("Expose Metrics Port.")
 	// Add to the below struct any other metrics ports you want to expose.
 	servicePorts := []v1.ServicePort{
 		{Port: metricsPort, Name: metrics.OperatorPortName, Protocol: v1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: metricsPort}},

@@ -138,6 +138,9 @@ func getSpecDeployment(
 			Labels: map[string]string{
 				config.WorkspaceIDLabel: workspace.Status.WorkspaceId,
 			},
+			Annotations: map[string]string{
+				config.WorkspaceCreatorAnnotation: workspace.Annotations[config.WorkspaceCreatorAnnotation],
+			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
@@ -165,6 +168,9 @@ func getSpecDeployment(
 						config.CheOriginalNameLabel: config.CheOriginalName,
 						config.WorkspaceIDLabel:     workspace.Status.WorkspaceId,
 						config.WorkspaceNameLabel:   workspace.Name,
+					},
+					Annotations: map[string]string{
+						config.WorkspaceCreatorAnnotation: workspace.Annotations[config.WorkspaceCreatorAnnotation],
 					},
 				},
 				Spec: corev1.PodSpec{

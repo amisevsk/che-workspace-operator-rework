@@ -13,10 +13,9 @@ package webhook
 
 import (
 	"context"
-
 	"github.com/che-incubator/che-workspace-operator/pkg/webhook/server"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
@@ -30,14 +29,13 @@ var configureWebhookTasks []func(*webhook.Server, context.Context) error
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 func SetUpWebhooks(mgr manager.Manager, ctx context.Context) error {
-	log.Info("Attempting to configure webhook server")
 	success, err := server.ConfigureWebhookServer(mgr)
 	if !success {
 		if err != nil {
-			log.Info("Failed to configure webhook server")
 			return err
 		} else {
 			log.Info("Webhook server is not set up. Skipping webhook cfg registration")
+			return nil
 		}
 	}
 
