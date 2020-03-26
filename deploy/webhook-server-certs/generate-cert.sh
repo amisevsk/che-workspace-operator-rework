@@ -1,5 +1,3 @@
-#!/bin/sh
-
 #
 # Copyright (c) 2019-2020 Red Hat, Inc.
 # This program and the accompanying materials are made
