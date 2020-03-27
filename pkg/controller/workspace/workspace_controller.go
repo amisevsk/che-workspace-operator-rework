@@ -28,6 +28,13 @@ import (
 
 var log = logf.Log.WithName("controller_workspace")
 
+type currentStatus struct {
+	// List of condition types that are true for the current workspace
+	Conditions []workspacev1alpha1.WorkspaceConditionType
+	// Current workspace phase
+	Phase      workspacev1alpha1.WorkspacePhase
+}
+
 // Add creates a new Workspace Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
@@ -121,7 +128,7 @@ func (r *ReconcileWorkspace) Write(p []byte) (n int, err error) {
 
 // Reconcile reads that state of the cluster for a Workspace object and makes changes based on the state read
 // and what is in the Workspace.Spec
-func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcileResult reconcile.Result, err error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Workspace")
 	clusterAPI := provision.ClusterAPI{
@@ -132,7 +139,7 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 
 	// Fetch the Workspace instance
 	workspace := &workspacev1alpha1.Workspace{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, workspace)
+	err = r.client.Get(context.TODO(), request.NamespacedName, workspace)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -158,7 +165,21 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 			return reconcile.Result{}, err
 		}
 		workspace.Status.WorkspaceId = workspaceId
+		err = r.client.Status().Update(context.TODO(), workspace)
+		return reconcile.Result{Requeue: true}, err
 	}
+
+	if workspace.Status.Phase == workspacev1alpha1.WorkspaceStatusFailed {
+		// TODO: Figure out when workspace spec is changed and clear failed status to allow reconcile to continue
+		reqLogger.Info("Workspace startup is failed; not attempting to update.")
+		return reconcile.Result{}, nil
+	}
+
+	// Prepare handling workspace status and condition
+	reconcileStatus := currentStatus{
+		Phase: workspacev1alpha1.WorkspaceStatusStarting,
+	}
+	defer func() (reconcile.Result, error){return r.updateWorkspaceStatus(workspace, &reconcileStatus, reconcileResult, err)}()
 
 	// Step one: Create components, and wait for their states to be ready.
 	componentsStatus := provision.SyncComponentsToCluster(workspace, clusterAPI)
@@ -167,6 +188,7 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{Requeue: componentsStatus.Requeue}, componentsStatus.Err
 	}
 	componentDescriptions := componentsStatus.ComponentDescriptions
+	reconcileStatus.Conditions = append(reconcileStatus.Conditions, workspacev1alpha1.WorkspaceComponentsReady)
 
 	cheRestApisComponent := getCheRestApisComponent(workspace.Name, workspace.Status.WorkspaceId, workspace.Namespace)
 	componentDescriptions = append(componentDescriptions, cheRestApisComponent)
@@ -174,14 +196,25 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 	// Step two: Create routing, and wait for routing to be ready
 	routingStatus := provision.SyncRoutingToCluster(workspace, componentDescriptions, clusterAPI)
 	if !routingStatus.Continue {
+		if routingStatus.FailStartup {
+			reqLogger.Info("Workspace start failed")
+			reconcileStatus.Phase = workspacev1alpha1.WorkspaceStatusFailed
+			return reconcile.Result{}, routingStatus.Err
+		}
 		reqLogger.Info("Waiting on routing to be ready")
 		return reconcile.Result{Requeue: routingStatus.Requeue}, routingStatus.Err
 	}
+	reconcileStatus.Conditions = append(reconcileStatus.Conditions, workspacev1alpha1.WorkspaceRoutingReady)
 
 	// Step 2.5: setup runtime annotation (TODO: use configmap)
 	cheRuntime, err := wsRuntime.ConstructRuntimeAnnotation(componentDescriptions, routingStatus.ExposedEndpoints)
-	workspaceStatus := provision.SyncWorkspaceStatus(workspace, cheRuntime, clusterAPI)
+	workspaceStatus := provision.SyncWorkspaceStatus(workspace, routingStatus.ExposedEndpoints, cheRuntime, clusterAPI)
 	if !workspaceStatus.Continue {
+		if workspaceStatus.FailStartup {
+			reqLogger.Info("Workspace start failed")
+			reconcileStatus.Phase = workspacev1alpha1.WorkspaceStatusFailed
+			return reconcile.Result{}, workspaceStatus.Err
+		}
 		reqLogger.Info("Updating workspace status")
 		return reconcile.Result{Requeue: workspaceStatus.Requeue}, workspaceStatus.Err
 	}
@@ -203,19 +236,31 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 	serviceAcctStatus := provision.SyncServiceAccount(workspace, saAnnotations, clusterAPI)
 	if !serviceAcctStatus.Continue {
+		if serviceAcctStatus.FailStartup {
+			reqLogger.Info("Workspace start failed")
+			reconcileStatus.Phase = workspacev1alpha1.WorkspaceStatusFailed
+			return reconcile.Result{}, serviceAcctStatus.Err
+		}
 		reqLogger.Info("Waiting for workspace ServiceAccount")
 		return reconcile.Result{Requeue: serviceAcctStatus.Requeue}, serviceAcctStatus.Err
 	}
 	serviceAcctName := serviceAcctStatus.ServiceAccountName
+	reconcileStatus.Conditions = append(reconcileStatus.Conditions, workspacev1alpha1.WorkspaceServiceAccountReady)
 
 	// Step five: Create deployment and wait for it to be ready
 	deploymentStatus := provision.SyncDeploymentToCluster(workspace, podAdditions, serviceAcctName, clusterAPI)
 	if !deploymentStatus.Continue {
+		if deploymentStatus.FailStartup {
+			reqLogger.Info("Workspace start failed")
+			reconcileStatus.Phase = workspacev1alpha1.WorkspaceStatusFailed
+			return reconcile.Result{}, deploymentStatus.Err
+		}
 		reqLogger.Info("Waiting on deployment to be ready")
 		return reconcile.Result{Requeue: deploymentStatus.Requeue}, deploymentStatus.Err
 	}
+	reconcileStatus.Conditions = append(reconcileStatus.Conditions, workspacev1alpha1.WorkspaceDeploymentReady)
 
-	reqLogger.Info("Everything ready :)")
+	reconcileStatus.Phase = workspacev1alpha1.WorkspaceStatusReady
 	return reconcile.Result{}, nil
 }
 

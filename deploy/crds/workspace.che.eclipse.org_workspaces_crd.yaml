@@ -3,6 +3,19 @@ kind: CustomResourceDefinition
 metadata:
   name: workspaces.workspace.che.eclipse.org
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.workspaceId
+    description: The workspace's unique id
+    name: Workspace ID
+    type: string
+  - JSONPath: .status.phase
+    description: The current workspace startup phase
+    name: Phase
+    type: string
+  - JSONPath: .status.ideUrl
+    description: Url endpoint for accessing workspace
+    name: URL
+    type: string
   group: workspace.che.eclipse.org
   names:
     kind: Workspace
@@ -218,8 +231,8 @@ spec:
               - org.eclipse.che.workspace/runtime
               type: object
             condition:
-              description: 'Conditions represent the latest available observations
-                of an object''s state TODO: Handle conditions in general'
+              description: Conditions represent the latest available observations
+                of an object's state
               items:
                 description: WorkspaceCondition contains details for the current condition
                   of this workspace.
@@ -238,7 +251,7 @@ spec:
                       last transition.
                     type: string
                   status:
-                    description: Status is the status of the condition. Can be True,
+                    description: Phase is the status of the condition. Can be True,
                       False, Unknown.
                     type: string
                   type:
@@ -249,11 +262,14 @@ spec:
                 - type
                 type: object
               type: array
-            status:
+            ideUrl:
+              type: string
+            phase:
               type: string
             workspaceId:
               type: string
           required:
+          - ideUrl
           - workspaceId
           type: object
       type: object

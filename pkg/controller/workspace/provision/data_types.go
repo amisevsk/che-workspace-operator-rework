@@ -8,9 +8,10 @@ import (
 
 type ProvisioningStatus struct {
 	// Continue should be true if cluster state matches spec state for this step
-	Continue bool
-	Requeue  bool
-	Err      error
+	Continue    bool
+	Requeue     bool
+	FailStartup bool
+	Err         error
 }
 
 type ClusterAPI struct {

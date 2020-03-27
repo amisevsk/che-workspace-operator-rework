@@ -7,6 +7,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
@@ -49,7 +50,7 @@ func (r *ReconcileWorkspaceRouting) syncServices(routing *v1alpha1.WorkspaceRout
 				// We also cannot use client.Update, as the spec contains ClusterIP which cannot be modified.
 				patch := client.MergeFrom(&specService)
 				err := r.client.Patch(context.TODO(), &clusterService, patch)
-				if err != nil {
+				if err != nil && !errors.IsConflict(err) {
 					return false, err
 				}
 				servicesInSync = false

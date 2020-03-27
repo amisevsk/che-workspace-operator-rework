@@ -7,6 +7,7 @@ import (
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -61,6 +62,11 @@ func SyncComponentsToCluster(
 		log.Info("Updating component", "component", component.Name)
 		err := clusterAPI.Client.Update(context.TODO(), &component)
 		if err != nil {
+			if errors.IsConflict(err) {
+				return ComponentProvisioningStatus{
+					ProvisioningStatus:    ProvisioningStatus{Requeue: true},
+				}
+			}
 			return ComponentProvisioningStatus{
 				ProvisioningStatus: ProvisioningStatus{Err: err},
 			}

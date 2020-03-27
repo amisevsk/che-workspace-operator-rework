@@ -7,6 +7,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -40,7 +41,7 @@ func (r *ReconcileWorkspaceRouting) syncIngresses(routing *v1alpha1.WorkspaceRou
 				// Update ingress's spec
 				clusterIngress.Spec = specIngress.Spec
 				err := r.client.Update(context.TODO(), &clusterIngress)
-				if err != nil {
+				if err != nil && !errors.IsConflict(err) {
 					return false, err
 				}
 				ingressesInSync = false

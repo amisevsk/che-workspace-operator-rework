@@ -75,12 +75,14 @@ func SyncServiceAccount(
 		fmt.Printf("\n\n%s\n\n", cmp.Diff(specSA, *clusterSA))
 		patch := runtimeClient.MergeFrom(&specSA)
 		err := clusterAPI.Client.Patch(context.TODO(), clusterSA, patch)
+		if err != nil {
+			if errors.IsConflict(err) {
+				return ServiceAcctProvisioningStatus{ProvisioningStatus: ProvisioningStatus{Requeue: true}}
+			}
+			return ServiceAcctProvisioningStatus{ProvisioningStatus: ProvisioningStatus{Err: err}}
+		}
 		return ServiceAcctProvisioningStatus{
-			ProvisioningStatus: ProvisioningStatus{
-				Continue: false,
-				Requeue:  true,
-				Err:      err,
-			},
+			ProvisioningStatus: ProvisioningStatus{Requeue: true},
 		}
 	}
 

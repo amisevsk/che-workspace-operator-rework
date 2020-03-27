@@ -20,11 +20,11 @@ type WorkspaceSpec struct {
 // WorkspaceStatus defines the observed state of Workspace
 // +k8s:openapi-gen=true
 type WorkspaceStatus struct {
-	WorkspaceId string              `json:"workspaceId"`
-	Status      WorkspaceStatusType `json:"status,omitempty"`
+	WorkspaceId string         `json:"workspaceId"`
+	Phase       WorkspacePhase `json:"phase,omitempty"`
+	IdeUrl      string         `json:"ideUrl"`
 	// Conditions represent the latest available observations of an object's state
 	// +listType=map
-	// TODO: Handle conditions in general
 	Condition []WorkspaceCondition `json:"condition,omitempty"`
 
 	// TODO: This could potentially be handled via configmap more cleanly
@@ -38,8 +38,8 @@ type WorkspaceStatusAdditionalFields struct {
 // WorkspaceCondition contains details for the current condition of this workspace.
 type WorkspaceCondition struct {
 	// Type is the type of the condition.
-	Type string `json:"type"`
-	// Status is the status of the condition.
+	Type WorkspaceConditionType `json:"type"`
+	// Phase is the status of the condition.
 	// Can be True, False, Unknown.
 	Status corev1.ConditionStatus `json:"status"`
 	// Last time the condition transitioned from one status to another.
@@ -50,18 +50,24 @@ type WorkspaceCondition struct {
 	Message string `json:"message,omitempty"`
 }
 
-type WorkspaceStatusType string
+type WorkspacePhase string
 
 // Valid workspace Statuses
 const (
-	WorkspaceStatusStarting WorkspaceStatusType = "Starting"
-	WorkspaceStatusStarted  WorkspaceStatusType = "Started"
-	WorkspaceStatusStopped  WorkspaceStatusType = "Stopped"
-	WorkspaceStatusFailed   WorkspaceStatusType = "Failed"
+	WorkspaceStatusStarting WorkspacePhase = "Starting"
+	WorkspaceStatusReady    WorkspacePhase = "Ready"
+	WorkspaceStatusStopped  WorkspacePhase = "Stopped"
+	WorkspaceStatusFailed   WorkspacePhase = "Failed"
 )
 
-// WorkspacePhase is a label for the condition of a workspace at the current time.
-type WorkspacePhase string
+type WorkspaceConditionType string
+
+const (
+	WorkspaceComponentsReady     WorkspaceConditionType = "ComponentsReady"
+	WorkspaceRoutingReady        WorkspaceConditionType = "RoutingReady"
+	WorkspaceServiceAccountReady WorkspaceConditionType = "ServiceAccountReady"
+	WorkspaceDeploymentReady     WorkspaceConditionType = "DeploymentReady"
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -69,6 +75,9 @@ type WorkspacePhase string
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=workspaces,scope=Namespaced
+// +kubebuilder:printcolumn:name="Workspace ID",type="string",JSONPath=".status.workspaceId",description="The workspace's unique id"
+// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="The current workspace startup phase"
+// +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.ideUrl",description="Url endpoint for accessing workspace"
 type Workspace struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

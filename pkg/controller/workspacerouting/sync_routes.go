@@ -7,6 +7,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	routeV1 "github.com/openshift/api/route/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -41,9 +42,10 @@ func (r *ReconcileWorkspaceRouting) syncRoutes(routing *v1alpha1.WorkspaceRoutin
 				// Update route's spec
 				clusterRoute.Spec = specRoute.Spec
 				err := r.client.Update(context.TODO(), &clusterRoute)
-				if err != nil {
+				if err != nil && !errors.IsConflict(err) {
 					return false, err
 				}
+
 				routesInSync = false
 			}
 		} else {

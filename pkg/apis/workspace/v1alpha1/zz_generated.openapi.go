@@ -414,7 +414,13 @@ func schema_pkg_apis_workspace_v1alpha1_WorkspaceStatus(ref common.ReferenceCall
 							Format: "",
 						},
 					},
-					"status": {
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"ideUrl": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -444,7 +450,7 @@ func schema_pkg_apis_workspace_v1alpha1_WorkspaceStatus(ref common.ReferenceCall
 						},
 					},
 				},
-				Required: []string{"workspaceId"},
+				Required: []string{"workspaceId", "ideUrl"},
 			},
 		},
 		Dependencies: []string{

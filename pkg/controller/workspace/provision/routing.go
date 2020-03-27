@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
-	config2 "github.com/che-incubator/che-workspace-operator/pkg/config"
+	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -26,9 +26,9 @@ var routingDiffOpts = cmp.Options{
 }
 
 func SyncRoutingToCluster(
-	workspace *v1alpha1.Workspace,
-	components []v1alpha1.ComponentDescription,
-	clusterAPI ClusterAPI) RoutingProvisioningStatus {
+		workspace *v1alpha1.Workspace,
+		components []v1alpha1.ComponentDescription,
+		clusterAPI ClusterAPI) RoutingProvisioningStatus {
 
 	specRouting, err := getSpecRouting(workspace, components, clusterAPI.Scheme)
 	if err != nil {
@@ -54,8 +54,14 @@ func SyncRoutingToCluster(
 	if !cmp.Equal(specRouting, clusterRouting, routingDiffOpts) {
 		clusterRouting.Spec = specRouting.Spec
 		err := clusterAPI.Client.Update(context.TODO(), clusterRouting)
+		if err != nil {
+			if errors.IsConflict(err) {
+				return RoutingProvisioningStatus{ProvisioningStatus: ProvisioningStatus{Requeue: true}}
+			}
+			return RoutingProvisioningStatus{ProvisioningStatus: ProvisioningStatus{Err: err}}
+		}
 		return RoutingProvisioningStatus{
-			ProvisioningStatus: ProvisioningStatus{Requeue: true, Err: err},
+			ProvisioningStatus: ProvisioningStatus{Requeue: true},
 		}
 	}
 
@@ -78,9 +84,9 @@ func SyncRoutingToCluster(
 }
 
 func getSpecRouting(
-	workspace *v1alpha1.Workspace,
-	componentDescriptions []v1alpha1.ComponentDescription,
-	scheme *runtime.Scheme) (*v1alpha1.WorkspaceRouting, error) {
+		workspace *v1alpha1.Workspace,
+		componentDescriptions []v1alpha1.ComponentDescription,
+		scheme *runtime.Scheme) (*v1alpha1.WorkspaceRouting, error) {
 
 	endpoints := map[string][]v1alpha1.Endpoint{}
 	for _, desc := range componentDescriptions {
@@ -95,7 +101,7 @@ func getSpecRouting(
 		Spec: v1alpha1.WorkspaceRoutingSpec{
 			WorkspaceId:         workspace.Status.WorkspaceId,
 			RoutingClass:        workspace.Spec.RoutingClass,
-			IngressGlobalDomain: config2.ControllerCfg.GetIngressGlobalDomain(),
+			IngressGlobalDomain: config.ControllerCfg.GetIngressGlobalDomain(),
 			Endpoints:           endpoints,
 			PodSelector: map[string]string{
 				"app": workspace.Status.WorkspaceId,
