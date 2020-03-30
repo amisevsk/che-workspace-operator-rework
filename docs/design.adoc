@@ -8,7 +8,7 @@
 ----
 /
 ├── internal                    - support methods (check if we're in OpenShift,
-|   |                             create a client)
+|                                 create a client)
 ├── pkg
 │   ├── adaptor                 - "adaptors" that convert devfile spec into k8s 
 |   |                             objects. These files define the conversion 
@@ -23,10 +23,9 @@
 │   │   ├── component           - Subcontroller for 'Component' CRs, responsible 
 |   |   |                         for converting devfile components in spec to 
 |   |   |                         k8s Components that are passed back via status.
-│   │   ├── ownerref            - TODO: Move
-│   │   ├── workspace           - Main workspace controller; responsible for 
-|   |   |                         creating subcontrollers and main workspace 
-|   |   |                         deployment
+│   │   ├── workspace           - Main workspace controller; responsible for
+|   |   |   |                     creating subcontrollers and main workspace 
+|   |   |   |                     deployment
 │   │   │   ├── env             - Common env vars provisioned into all containers
 │   │   │   ├── prerequisites   - Required objects for all workspaces: roles, 
 |   |   |   |                     rolebindings, persistent storage
@@ -62,13 +61,13 @@ Each step in the main workspace controller reconcile is represented by a file in
 | Containers, init containers, volumes, labels, and annotations that are to be added to the main workspace deployment
 | Used to pass data from subcontrollers to main workspace controller
 
-| `ProvisioningStatus`
-| Boolean flags to signal different states for a reconcile and communicate errors; used in `pkg/controller/workspace/provision`
-| Intended to be extended to add additional context, e.g. to add `PodAdditions` from components. Each provision step in the main reconcile loop checks the fields on this struct to determine whether to continue, return, requeue, or report an error
-
 | `ComponentAddition`
 | Encapsulate all information we support from each component. Has fields for podAdditions and additional devfile-specific information (e.g. devfile attributes, runtime commands, etc.)
 | Additional metadata from devfile is required for various further processing (e.g. whether an endpoint is public, which commands match with which container, etc.)
+
+| `ProvisioningStatus`
+| Boolean flags to signal different states for a reconcile and communicate errors; used in `pkg/controller/workspace/provision`
+| Intended to be embedded in step-specific struct that provides additional context: e.g. For components, we embed a `ProvisioningStatus` in a struct that also provides PodAdditions. This provides a uniform process for checking whether there is an error or if we can continue reconciling in the main reconcile loop.
 
 |===
 
