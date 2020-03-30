@@ -1,0 +1,149 @@
+:imagesdir: images
+
+= Design notes 
+
+
+== File structure
+
+----
+/
+├── internal                    - support methods (check if we're in OpenShift,
+|   |                             create a client)
+├── pkg
+│   ├── adaptor                 - "adaptors" that convert devfile spec into k8s 
+|   |                             objects. These files define the conversion 
+|   |                             between devfile and cluster APIs
+│   ├── apis                    - Definitions for custom resources used
+│   ├── common                  - Utility functions common to all controllers 
+|   |                             (e.g. naming objects)
+│   ├── config                  - Controller configuration interface; global constants
+|   |                             constants
+│   ├── controller              - Controllers used in the operator; each folder 
+|   |   |                         should define one controller for one CR.
+│   │   ├── component           - Subcontroller for 'Component' CRs, responsible 
+|   |   |                         for converting devfile components in spec to 
+|   |   |                         k8s Components that are passed back via status.
+│   │   ├── ownerref            - TODO: Move
+│   │   ├── workspace           - Main workspace controller; responsible for 
+|   |   |                         creating subcontrollers and main workspace 
+|   |   |                         deployment
+│   │   │   ├── env             - Common env vars provisioned into all containers
+│   │   │   ├── prerequisites   - Required objects for all workspaces: roles, 
+|   |   |   |                     rolebindings, persistent storage
+│   │   │   ├── provision       - Workspace reconcile steps (see below)
+│   │   │   └── runtime         - Addition of che-rest-apis into workspace deployment
+│   │   └── workspacerouting    - Subcontroller responsible for creating all 
+|   |       |                     ingresses, routes, and services.
+│   │       └── solvers         - An interface for generating workspace routing and 
+|   |                             implementations; implementations to match 'routingClass'
+|   |                             in workspace spec (e.g. 'basic', 'openshift-oauth')
+│   └── webhook                 - Webhooks for workspace
+│       ├── server              - Webhooks server endpoint, creates service for webhooks
+│       └── workspace           - Validating and Mutating webhooks to manage and restrict 
+|           |                     access to workspaceId and creator annotation
+│           └── handler
+
+----
+
+
+== High-level flow
+
+The main workspace controller progresses through a number of steps; each reconcile loop currently starts from the beginning, as a change to e.g. a component could mean changes to all following stes.
+
+image::high_level_flow.png[Flow diagram]
+
+Each step in the main workspace controller reconcile is represented by a file in `pkg/controller/workspace/provision`.
+
+===  Key structs
+
+|===
+| Name | Fields | Notes
+| `PodAdditions`
+| Containers, init containers, volumes, labels, and annotations that are to be added to the main workspace deployment
+| Used to pass data from subcontrollers to main workspace controller
+
+| `ProvisioningStatus`
+| Boolean flags to signal different states for a reconcile and communicate errors; used in `pkg/controller/workspace/provision`
+| Intended to be extended to add additional context, e.g. to add `PodAdditions` from components. Each provision step in the main reconcile loop checks the fields on this struct to determine whether to continue, return, requeue, or report an error
+
+| `ComponentAddition`
+| Encapsulate all information we support from each component. Has fields for podAdditions and additional devfile-specific information (e.g. devfile attributes, runtime commands, etc.)
+| Additional metadata from devfile is required for various further processing (e.g. whether an endpoint is public, which commands match with which container, etc.)
+
+|===
+
+
+===  Subcontrollers
+Each controller is responsible for a distinct subset of resources:
+
+|===
+| Controller | Responsibliity
+| Main controller 
+| Reconciles subcontrollers, workspace prerequisites, service account, and deployment
+
+| WorkspaceRouting subcontroller
+| Reconciles ingresses, routes, and services for workspace
+
+| Component subcontroller
+| Responsible for maintaining status to reflect current components
+
+|===
+
+Subcontrollers pass data back to the main controller via their status:
+
+|===
+| Subcontroller | Relevant status struct
+| Component
+| `ComponentDescriptions` - see above
+
+| WorkspaceRouting
+| - `PodAdditions` (see above) -- used to e.g. add an OpenShift oauth-proxy container to the deployment.
+
+- `ExposedEndpoints`: map of exposed URLs and the devfile attributes associated with them
+
+|===
+
+== Differences from current che-workspace-operator
+
+* All controllers do full reconciling of all objects they are responsible for; this means deleting a route or the workspace deployment means it will be recreated
+** The main workspace controller now watches all resources it creates to trigger reconciles
+* The main reconcile loop is split into phases with subcontrollers; it only progresses based on status of earlier steps (i.e. if components aren't ready, we don't try to create routing)
+* All service/ingress/route creation is delegated to WorkspaceRouting
+* The openshift-oauth routingClass results in the openshift oauth-proxy container running in the main workspace deployment
+* There's a cleaner separation between elements in `pkg/controller` -- no imports across controllers (i.e. WorkspaceRouting imports nothing from Workspace)
+** All shared structs are extracted to `apis` folder
+
+== Outstanding issues / TODOs
+* Not much is done to limit unnecessary reconciles; while reconciling works as intended, we likely run through the reconcile loop unnecessarily
+* Better handling of errors is needed in the future; occasionally conflicts are logged on update due to stale resources
+* Che-rest-apis configuration should be handled via a configmap, instead of relying on the rest-apis container to read required information from workspace status; this would also clean up workspace statuses
+** We can likely also move the devfile into a configmap and read that as a file instead of from the spec
+* Better handling of persistent storage, ephemeral workspaces, etc. Also need to support individual ephemeral volumes in an otherwise persistent workspace
+* Clean up persistent storage on workspace removal, as one PVC is shared between workspaces in a namespace
+
+== Open questions
+. How should mountSources be handled? 
+.. VolumeMounts *and* Volumes are defined in adaptors (i.e. dockerfile adaptor includes `/projects` in its status)
+*** Means we have to deduplicate volumes when merging for main deployment, since multiple components could contribute it
+*** Have to sync with controller's settings to get PVC name, etc.
+.. VolumeMount defined in adaptor, Volume defined in main controller
+*** Have to sync between controllers, as half of the mount is defined in workspace controller and other half in component controller (e.g. volume and mount name have to match)
+*** Outputs of component controller is not "complete" -- workspace controller has to remember to add
+.. VolumeMounts *and* Volumes are defined in workspace controller
+*** Config is synced, and no need to de-dupe volumemounts
+*** MountSources state is lost by default; have to pass back in ComponentMetadata, etc.
+    **** Complicates matching containers in podadditions to component
+*** Hard to match which plugin containers get sources and which don't
+
++
+*Solution*: option *b* for now, to match main repo's approach
+
+. "Discoverable" endpoints
+** Che docs:
++
+> discoverable: If an endpoint is discoverable, it means that it can be accessed using its name as the hostname within the workspace containers (in the Kubernetes parlance, a service is created for it with the provided name).
+
+** Attribute is intended to allow integration with existing infrastructure (e.g. defining a service that can be used by a non-workspace component)
+** Do we need to continue to support this option?
+
+. How should containers in a workspace be named? Should we use workspace or container name where available? What does this affect?
