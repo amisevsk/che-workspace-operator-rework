@@ -54,8 +54,7 @@ func getProxyContainerForEndpoint(proxyEndpoint proxyEndpoint, meta WorkspaceMet
 			"--https-address=:" + strconv.FormatInt(proxyEndpoint.publicEndpoint.Port, 10),
 			"--http-address=127.0.0.1:" + strconv.FormatInt(proxyEndpoint.publicEndpointHttpPort, 10),
 			"--provider=openshift",
-			// TODO: figure out better way to do this
-			"--openshift-service-account=" + "che-" + meta.WorkspaceId,
+			"--openshift-service-account=" + common.ServiceAccountName(meta.WorkspaceId),
 			"--upstream=http://localhost:" + strconv.FormatInt(proxyEndpoint.upstreamEndpoint.Port, 10),
 			"--tls-cert=/etc/tls/private/tls.crt",
 			"--tls-key=/etc/tls/private/tls.key",
@@ -96,10 +95,9 @@ func getProxyServiceAcctAnnotations(proxyEndpoints map[string]proxyEndpoint, met
 
 	for _, proxyEndpoint := range proxyEndpoints {
 		portNum := proxyEndpoint.publicEndpoint.Port
-		// TODO: Figure out naming once and for all
-		ingressName := common.EndpointName(proxyEndpoint.publicEndpoint.Name)
+		routeName := common.RouteName(meta.WorkspaceId, proxyEndpoint.publicEndpoint.Name)
 		annotKey := fmt.Sprintf(proxyServiceAcctAnnotationKeyFmt, meta.WorkspaceId, strconv.FormatInt(portNum, 10))
-		annotVal := fmt.Sprintf(proxyServiceAcctAnnotationValueFmt, ingressName)
+		annotVal := fmt.Sprintf(proxyServiceAcctAnnotationValueFmt, routeName)
 		annotations[annotKey] = annotVal
 	}
 

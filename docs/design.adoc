@@ -111,6 +111,7 @@ Subcontrollers pass data back to the main controller via their status:
 * The openshift-oauth routingClass results in the openshift oauth-proxy container running in the main workspace deployment
 * There's a cleaner separation between elements in `pkg/controller` -- no imports across controllers (i.e. WorkspaceRouting imports nothing from Workspace)
 ** All shared structs are extracted to `apis` folder
+* One service is created for all workspace endpoints (except discoverable endpoints)
 
 == Outstanding issues / TODOs
 * Not much is done to limit unnecessary reconciles; while reconciling works as intended, we likely run through the reconcile loop unnecessarily

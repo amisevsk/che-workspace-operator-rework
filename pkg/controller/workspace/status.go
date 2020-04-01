@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
+	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/provision"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeclock "k8s.io/apimachinery/pkg/util/clock"
@@ -16,7 +17,7 @@ import (
 // This variable makes it easier to test conditions.
 var clock kubeclock.Clock = &kubeclock.RealClock{}
 
-func (r *ReconcileWorkspace) updateWorkspaceStatus(workspace *v1alpha1.Workspace, status *currentStatus, reconcileResult reconcile.Result, reconcileError error) (reconcile.Result, error) {
+func (r *ReconcileWorkspace) updateWorkspaceStatus(workspace *v1alpha1.Workspace, clusterAPI provision.ClusterAPI, status *currentStatus, reconcileResult reconcile.Result, reconcileError error) (reconcile.Result, error) {
 	workspace.Status.Phase = status.Phase
 	currTransitionTime := metav1.Time{Time: clock.Now()}
 	for _, conditionType := range status.Conditions {
@@ -49,7 +50,7 @@ func (r *ReconcileWorkspace) updateWorkspaceStatus(workspace *v1alpha1.Workspace
 
 	err := r.client.Status().Update(context.TODO(), workspace)
 	if err != nil {
-		fmt.Printf("Error updating workspace status: %s\n", err)
+		clusterAPI.Logger.Info(fmt.Sprintf("Error updating workspace status: %s", err))
 		if reconcileError == nil {
 			reconcileError = err
 		}

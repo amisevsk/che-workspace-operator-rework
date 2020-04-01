@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
 	"github.com/che-incubator/che-workspace-operator/pkg/common"
+	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	routeV1 "github.com/openshift/api/route/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"strconv"
 )
 
 type OpenShiftOAuthSolver struct{}
@@ -41,9 +41,11 @@ func (s *OpenShiftOAuthSolver) GetSpecObjects(spec v1alpha1.WorkspaceRoutingSpec
 	proxyServices := getServicesForEndpoints(proxyPorts, workspaceMeta)
 	for idx := range proxyServices {
 		proxyServices[idx].Annotations = map[string]string{
-			"service.alpha.openshift.io/serving-cert-secret-name": "proxy-tls", // TODO: Find a better way to do this
+			"service.alpha.openshift.io/serving-cert-secret-name": "proxy-tls",
 		}
 	}
+	discoverableServices := getDiscoverableServicesForEndpoints(proxyPorts, workspaceMeta)
+	services := append(proxyServices, discoverableServices...)
 
 	routes, proxyEndpoints, podAdditions := s.getProxyRoutes(proxy, workspaceMeta, portMappings)
 	for machineName, machineEndpoints := range proxyEndpoints {
@@ -51,7 +53,7 @@ func (s *OpenShiftOAuthSolver) GetSpecObjects(spec v1alpha1.WorkspaceRoutingSpec
 	}
 
 	return RoutingObjects{
-		Services:         proxyServices,
+		Services:         services,
 		Ingresses:        defaultIngresses,
 		Routes:           routes,
 		PodAdditions:     podAdditions,
@@ -72,13 +74,13 @@ func (s *OpenShiftOAuthSolver) getProxyRoutes(
 		for _, upstreamEndpoint := range machineEndpoints {
 			proxyEndpoint := portMappings[upstreamEndpoint.Name]
 			endpoint := proxyEndpoint.publicEndpoint
-			// TODO: Check if there is a limit on using endpoint.Name here as there is for ingresses
 			targetEndpoint := intstr.FromInt(int(endpoint.Port))
 			endpointName := common.EndpointName(endpoint.Name)
-			hostname := fmt.Sprintf("%s-%s", endpointName, workspaceMeta.IngressGlobalDomain)
+			hostname := common.EndpointHostname(workspaceMeta.WorkspaceId, endpointName, endpoint.Port, workspaceMeta.IngressGlobalDomain)
 
-			// TODO: Currently, each proxied endpoint requires its own container and cookie; as such,
-			// we cannot proxy the terminal route.
+			// NOTE: openshift oauth-proxy only supports listening on a single port; as a result, we can't proxy more than
+			// one endpoint or we run into cookie issues (each proxied port gets a container and sets a cookie in the browser
+			// once auth is completed).
 			var tls *routeV1.TLSConfig = nil
 			if endpoint.Attributes[v1alpha1.SECURE_ENDPOINT_ATTRIBUTE] == "true" {
 				if endpoint.Attributes[v1alpha1.TYPE_ENDPOINT_ATTRIBUTE] == "terminal" {
@@ -95,17 +97,17 @@ func (s *OpenShiftOAuthSolver) getProxyRoutes(
 			}
 			routes = append(routes, routeV1.Route{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      endpointName,
+					Name:      common.RouteName(workspaceMeta.WorkspaceId, endpointName),
 					Namespace: workspaceMeta.Namespace,
 					Labels: map[string]string{
-						"app": workspaceMeta.WorkspaceId + "oauth", // TODO: Ingresses get routes by default on OpenShift
+						config.WorkspaceIDLabel: workspaceMeta.WorkspaceId,
 					},
 				},
 				Spec: routeV1.RouteSpec{
 					Host: hostname,
 					To: routeV1.RouteTargetReference{
 						Kind: "Service",
-						Name: "service-" + workspaceMeta.WorkspaceId, // TODO: Copied from service func above
+						Name: common.ServiceName(workspaceMeta.WorkspaceId),
 					},
 					Port: &routeV1.RoutePort{
 						TargetPort: targetEndpoint,
@@ -129,7 +131,6 @@ func getProxiedEndpoints(spec v1alpha1.WorkspaceRoutingSpec) (proxy, noProxy map
 	noProxy = map[string][]v1alpha1.Endpoint{}
 	for machineName, machineEndpoints := range spec.Endpoints {
 		for _, endpoint := range machineEndpoints {
-			// TODO: Meaning of v1alpha1.PUBLIC_ENDPOINT_ATTRIBUTE = true is unclear
 			if endpointNeedsProxy(endpoint) {
 				proxy[machineName] = append(proxy[machineName], endpoint)
 			} else {
@@ -152,9 +153,8 @@ func getProxyEndpointMappings(
 				machineName:      machineName,
 				upstreamEndpoint: endpoint,
 				publicEndpoint: v1alpha1.Endpoint{
-					// TODO: Ensure copying over attributes is correct
 					Attributes: endpoint.Attributes,
-					Name:       fmt.Sprintf("%s-proxy-%s", workspaceMeta.WorkspaceId, strconv.Itoa(proxyHttpsPort)),
+					Name:       fmt.Sprintf("%s-proxy", endpoint.Name),
 					Port:       int64(proxyHttpsPort),
 				},
 				publicEndpointHttpPort: proxyHttpPort,

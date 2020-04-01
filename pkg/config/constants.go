@@ -16,7 +16,7 @@ import "k8s.io/api/admissionregistration/v1beta1"
 
 // Internal constants
 const (
-	//default URL for accessing Che Rest API Emulator from Workspace containers
+	// default URL for accessing Che Rest API Emulator from Workspace containers
 	DefaultApiEndpoint = "http://localhost:9999/api/"
 
 	DefaultProjectsSourcesRoot = "/projects"
@@ -33,19 +33,19 @@ const (
 	SidecarDefaultMemoryLimit = "128M"
 	PVCStorageSize            = "1Gi"
 
-	//RuntimeAdditionalInfo is a key of workspaceStatus.AdditionalInfo where runtime info is stored
+	// RuntimeAdditionalInfo is a key of workspaceStatus.AdditionalInfo where runtime info is stored
 	RuntimeAdditionalInfo = "org.eclipse.che.workspace/runtime"
 
-	//RuntimeAdditionalInfo is a key of workspaceStatus.AdditionalInfo info where component statuses info is stored
+	// RuntimeAdditionalInfo is a key of workspaceStatus.AdditionalInfo info where component statuses info is stored
 	ComponentStatusesAdditionalInfo = "org.eclipse.che.workspace/componentstatuses"
 
-	//WorkspaceIDLabel is label key to store workspace identifier
+	// WorkspaceIDLabel is label key to store workspace identifier
 	WorkspaceIDLabel = "che.workspace_id"
 
-	//WorkspaceNameLabel is label key to store workspace identifier
+	// WorkspaceNameLabel is label key to store workspace identifier
 	WorkspaceNameLabel = "che.workspace_name"
 
-	//CheOriginalNameLabel is label key to original name
+	// CheOriginalNameLabel is label key to original name
 	CheOriginalNameLabel = "che.original_name"
 
 	WorkspaceCreatorAnnotation = "org.eclipse.che.workspace/creator"

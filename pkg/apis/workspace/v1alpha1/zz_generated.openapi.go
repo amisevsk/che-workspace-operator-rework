@@ -350,14 +350,13 @@ func schema_pkg_apis_workspace_v1alpha1_WorkspaceRoutingStatus(ref common.Refere
 							},
 						},
 					},
-					"ready": {
+					"phase": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
+							Type:   []string{"string"},
 							Format: "",
 						},
 					},
 				},
-				Required: []string{"ready"},
 			},
 		},
 		Dependencies: []string{

@@ -6,12 +6,12 @@ import (
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
 	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	"github.com/eclipse/che-plugin-broker/model"
-	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func getArtifactsBrokerComponent(workspaceId, namespace string, components []v1alpha1.ComponentSpec) (*v1alpha1.ComponentDescription, *v1.ConfigMap, error) {
+func getArtifactsBrokerComponent(workspaceId, namespace string, components []v1alpha1.ComponentSpec) (*v1alpha1.ComponentDescription, *corev1.ConfigMap, error) {
 	const (
 		configMapVolumeName = "broker-config-volume"
 		configMapMountPath  = "/broker-config"
@@ -29,8 +29,8 @@ func getArtifactsBrokerComponent(workspaceId, namespace string, components []v1a
 	if err != nil {
 		return nil, nil, err
 	}
-	cm := &v1.ConfigMap{
-		ObjectMeta: v12.ObjectMeta{
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      configMapName,
 			Namespace: namespace,
 			Labels: map[string]string{
@@ -44,11 +44,11 @@ func getArtifactsBrokerComponent(workspaceId, namespace string, components []v1a
 
 	cmMode := int32(0644)
 	// Define volumes used by plugin broker
-	cmVolume := v1.Volume{
+	cmVolume := corev1.Volume{
 		Name: configMapVolumeName,
-		VolumeSource: v1.VolumeSource{
-			ConfigMap: &v1.ConfigMapVolumeSource{
-				LocalObjectReference: v1.LocalObjectReference{
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
 					Name: configMapName,
 				},
 				DefaultMode: &cmMode,
@@ -56,7 +56,7 @@ func getArtifactsBrokerComponent(workspaceId, namespace string, components []v1a
 		},
 	}
 
-	cmVolumeMounts := []v1.VolumeMount{
+	cmVolumeMounts := []corev1.VolumeMount{
 		{
 			MountPath: configMapMountPath,
 			Name:      configMapVolumeName,
@@ -69,12 +69,12 @@ func getArtifactsBrokerComponent(workspaceId, namespace string, components []v1a
 		},
 	}
 
-	initContainer := v1.Container{
+	initContainer := corev1.Container{
 		Name:                     brokerContainerName,
 		Image:                    brokerImage,
-		ImagePullPolicy:          v1.PullPolicy(config.ControllerCfg.GetSidecarPullPolicy()),
+		ImagePullPolicy:          corev1.PullPolicy(config.ControllerCfg.GetSidecarPullPolicy()),
 		VolumeMounts:             cmVolumeMounts,
-		TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
+		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		Args: []string{
 			"--disable-push",
 			"--runtime-id",
@@ -84,12 +84,12 @@ func getArtifactsBrokerComponent(workspaceId, namespace string, components []v1a
 			"--metas",
 			fmt.Sprintf("%s/%s", configMapMountPath, configMapDataName),
 		},
-		Resources: v1.ResourceRequirements{
-			Limits: v1.ResourceList{
-				v1.ResourceMemory: resource.MustParse("150Mi"),
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("150Mi"),
 			},
-			Requests: v1.ResourceList{
-				v1.ResourceMemory: resource.MustParse("150Mi"),
+			Requests: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("150Mi"),
 			},
 		},
 	}
@@ -97,8 +97,8 @@ func getArtifactsBrokerComponent(workspaceId, namespace string, components []v1a
 	brokerComponent := &v1alpha1.ComponentDescription{
 		Name: "artifacts-broker",
 		PodAdditions: v1alpha1.PodAdditions{
-			InitContainers: []v1.Container{initContainer},
-			Volumes:        []v1.Volume{cmVolume},
+			InitContainers: []corev1.Container{initContainer},
+			Volumes:        []corev1.Volume{cmVolume},
 		},
 	}
 

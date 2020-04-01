@@ -1,14 +1,13 @@
 package solvers
 
 import (
-	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
 	"github.com/che-incubator/che-workspace-operator/pkg/common"
+	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"strconv"
 )
 
 type WorkspaceMetadata struct {
@@ -18,39 +17,71 @@ type WorkspaceMetadata struct {
 	IngressGlobalDomain string
 }
 
+func getDiscoverableServicesForEndpoints(endpoints map[string][]v1alpha1.Endpoint, workspaceMeta WorkspaceMetadata) []corev1.Service {
+	var services []corev1.Service
+	for _, machineEndpoints := range endpoints {
+		for _, endpoint := range machineEndpoints {
+			if endpoint.Attributes[v1alpha1.DISCOVERABLE_ATTRIBUTE] == "true" {
+				// Create service with name matching endpoint
+				// TODO: This could cause a reconcile conflict if multiple workspaces define the same discoverable endpoint
+				// Also endpoint names may not be valid as service names
+				servicePort := corev1.ServicePort{
+					Name:       common.EndpointName(endpoint.Name),
+					Protocol:   corev1.ProtocolTCP,
+					Port:       int32(endpoint.Port),
+					TargetPort: intstr.FromInt(int(endpoint.Port)),
+				}
+				services = append(services, corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      common.EndpointName(endpoint.Name),
+						Namespace: workspaceMeta.Namespace,
+						Labels: map[string]string{
+							config.WorkspaceIDLabel: workspaceMeta.WorkspaceId,
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Ports:    []corev1.ServicePort{servicePort},
+						Selector: workspaceMeta.PodSelector,
+						Type:     corev1.ServiceTypeClusterIP,
+					},
+				})
+			}
+		}
+	}
+	return services
+}
+
 func getServicesForEndpoints(endpoints map[string][]v1alpha1.Endpoint, workspaceMeta WorkspaceMetadata) []corev1.Service {
+	var services []corev1.Service
 	var servicePorts []corev1.ServicePort
 	for _, machineEndpoints := range endpoints {
 		for _, endpoint := range machineEndpoints {
-
-			if endpoint.Attributes[v1alpha1.DISCOVERABLE_ATTRIBUTE] != "true" {
-				//continue // TODO: Unclear how this is supposed to work?
-			}
-			servicePorts = append(servicePorts, corev1.ServicePort{
+			servicePort := corev1.ServicePort{
 				Name:       common.EndpointName(endpoint.Name),
 				Protocol:   corev1.ProtocolTCP,
 				Port:       int32(endpoint.Port),
 				TargetPort: intstr.FromInt(int(endpoint.Port)),
-			})
+			}
+			servicePorts = append(servicePorts, servicePort)
 		}
 	}
 
-	return []corev1.Service{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "service-" + workspaceMeta.WorkspaceId, // TODO?
-				Namespace: workspaceMeta.Namespace,
-				Labels: map[string]string{
-					"app": workspaceMeta.WorkspaceId,
-				},
-			},
-			Spec: corev1.ServiceSpec{
-				Ports:    servicePorts,
-				Selector: workspaceMeta.PodSelector,
-				Type:     corev1.ServiceTypeClusterIP,
+	services = append(services, corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      common.ServiceName(workspaceMeta.WorkspaceId),
+			Namespace: workspaceMeta.Namespace,
+			Labels: map[string]string{
+				config.WorkspaceIDLabel: workspaceMeta.WorkspaceId,
 			},
 		},
-	}
+		Spec: corev1.ServiceSpec{
+			Ports:    servicePorts,
+			Selector: workspaceMeta.PodSelector,
+			Type:     corev1.ServiceTypeClusterIP,
+		},
+	})
+
+	return services
 }
 
 func getIngressesForSpec(endpoints map[string][]v1alpha1.Endpoint, workspaceMeta WorkspaceMetadata) ([]v1beta1.Ingress, map[string][]v1alpha1.ExposedEndpoint) {
@@ -60,7 +91,7 @@ func getIngressesForSpec(endpoints map[string][]v1alpha1.Endpoint, workspaceMeta
 	for machineName, machineEndpoints := range endpoints {
 		for _, endpoint := range machineEndpoints {
 			if endpoint.Attributes[v1alpha1.PUBLIC_ENDPOINT_ATTRIBUTE] != "true" {
-				//continue // TODO: Unclear how this is supposed to work?
+				continue
 			}
 			// Note: there is an additional limitation on target endpoint here: must be a DNS name fewer than 15 chars long
 			// In general, endpoint.Name _cannot_ be used here
@@ -68,14 +99,13 @@ func getIngressesForSpec(endpoints map[string][]v1alpha1.Endpoint, workspaceMeta
 			targetEndpoint = intstr.FromInt(int(endpoint.Port))
 
 			endpointName := common.EndpointName(endpoint.Name)
-			ingressHostname := fmt.Sprintf("%s-%s-%s.%s",
-				workspaceMeta.WorkspaceId, endpointName, strconv.FormatInt(endpoint.Port, 10), workspaceMeta.IngressGlobalDomain)
+			ingressHostname := common.EndpointHostname(workspaceMeta.WorkspaceId, endpointName, endpoint.Port, workspaceMeta.IngressGlobalDomain)
 			ingresses = append(ingresses, v1beta1.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      fmt.Sprintf("%s-%s", workspaceMeta.WorkspaceId, endpointName),
+					Name:      common.RouteName(workspaceMeta.WorkspaceId, endpointName),
 					Namespace: workspaceMeta.Namespace,
 					Labels: map[string]string{
-						"app": workspaceMeta.WorkspaceId,
+						config.WorkspaceIDLabel: workspaceMeta.WorkspaceId,
 					},
 					Annotations: ingressAnnotations,
 				},
@@ -88,7 +118,7 @@ func getIngressesForSpec(endpoints map[string][]v1alpha1.Endpoint, workspaceMeta
 									Paths: []v1beta1.HTTPIngressPath{
 										{
 											Backend: v1beta1.IngressBackend{
-												ServiceName: "service-" + workspaceMeta.WorkspaceId, // TODO: Copied from service func above
+												ServiceName: common.ServiceName(workspaceMeta.WorkspaceId),
 												ServicePort: targetEndpoint,
 											},
 										},

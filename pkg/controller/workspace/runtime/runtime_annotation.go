@@ -37,8 +37,8 @@ func getMachinesAnnotation(components []v1alpha1.ComponentDescription, endpoints
 
 				servers[endpoint.Name] = v1alpha1.CheWorkspaceServer{
 					Attributes: endpoint.Attributes,
-					Status:     v1alpha1.RunningServerStatus,                   // TODO: This is just set so the circles are green
-					URL:        fmt.Sprintf("%s://%s", protocol, endpoint.Url), // TODO: This could potentially be done when the endpoint is created (i.e. include protocol in endpoint.Url)
+					Status:     v1alpha1.RunningServerStatus, // TODO: This is just set so the circles are green
+					URL:        fmt.Sprintf("%s://%s", protocol, endpoint.Url),
 				}
 			}
 			machines[containerName] = v1alpha1.CheWorkspaceMachine{

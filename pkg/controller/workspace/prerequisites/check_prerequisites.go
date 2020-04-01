@@ -13,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// TODO: Copied in with minimal changes
 func CheckPrerequisites(workspace *v1alpha1.Workspace, client client.Client, reqLogger logr.Logger) error {
 	prereqs, err := generatePrerequisites(workspace.Namespace)
 	if err != nil {

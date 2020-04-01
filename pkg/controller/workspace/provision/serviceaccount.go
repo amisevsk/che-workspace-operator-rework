@@ -2,8 +2,8 @@ package provision
 
 import (
 	"context"
-	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
+	"github.com/che-incubator/che-workspace-operator/pkg/common"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -24,7 +24,7 @@ func SyncServiceAccount(
 	clusterAPI ClusterAPI) ServiceAcctProvisioningStatus {
 	// note: autoMountServiceAccount := true comes from a hardcoded value in prerequisites.go
 	autoMountServiceAccount := true
-	saName := "che-" + workspace.Status.WorkspaceId
+	saName := common.ServiceAccountName(workspace.Status.WorkspaceId)
 
 	specSA := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
@@ -72,7 +72,6 @@ func SyncServiceAccount(
 
 	if !cmp.Equal(specSA.Annotations, clusterSA.Annotations) {
 		clusterAPI.Logger.Info("Updating workspace ServiceAccount")
-		fmt.Printf("\n\n%s\n\n", cmp.Diff(specSA, *clusterSA))
 		patch := runtimeClient.MergeFrom(&specSA)
 		err := clusterAPI.Client.Patch(context.TODO(), clusterSA, patch)
 		if err != nil {

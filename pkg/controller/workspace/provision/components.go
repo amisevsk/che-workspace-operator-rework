@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/adaptor"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
+	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -64,7 +65,7 @@ func SyncComponentsToCluster(
 		if err != nil {
 			if errors.IsConflict(err) {
 				return ComponentProvisioningStatus{
-					ProvisioningStatus:    ProvisioningStatus{Requeue: true},
+					ProvisioningStatus: ProvisioningStatus{Requeue: true},
 				}
 			}
 			return ComponentProvisioningStatus{
@@ -120,7 +121,7 @@ func getSpecComponents(workspace *v1alpha1.Workspace, scheme *runtime.Scheme) ([
 			Name:      fmt.Sprintf("components-%s-%s", workspace.Status.WorkspaceId, "docker"),
 			Namespace: workspace.Namespace,
 			Labels: map[string]string{
-				"app": workspace.Status.WorkspaceId,
+				config.WorkspaceIDLabel: workspace.Status.WorkspaceId,
 			},
 		},
 		Spec: v1alpha1.WorkspaceComponentSpec{
@@ -134,7 +135,7 @@ func getSpecComponents(workspace *v1alpha1.Workspace, scheme *runtime.Scheme) ([
 			Name:      fmt.Sprintf("components-%s-%s", workspace.Status.WorkspaceId, "plugins"),
 			Namespace: workspace.Namespace,
 			Labels: map[string]string{
-				"app": workspace.Status.WorkspaceId,
+				config.WorkspaceIDLabel: workspace.Status.WorkspaceId,
 			},
 		},
 		Spec: v1alpha1.WorkspaceComponentSpec{
@@ -157,7 +158,7 @@ func getSpecComponents(workspace *v1alpha1.Workspace, scheme *runtime.Scheme) ([
 
 func getClusterComponents(workspace *v1alpha1.Workspace, client runtimeClient.Client) ([]v1alpha1.Component, error) {
 	found := &v1alpha1.ComponentList{}
-	labelSelector, err := labels.Parse(fmt.Sprintf("app=%s", workspace.Status.WorkspaceId))
+	labelSelector, err := labels.Parse(fmt.Sprintf("%s=%s", config.WorkspaceIDLabel, workspace.Status.WorkspaceId))
 	if err != nil {
 		return nil, err
 	}

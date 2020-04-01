@@ -26,9 +26,9 @@ var routingDiffOpts = cmp.Options{
 }
 
 func SyncRoutingToCluster(
-		workspace *v1alpha1.Workspace,
-		components []v1alpha1.ComponentDescription,
-		clusterAPI ClusterAPI) RoutingProvisioningStatus {
+	workspace *v1alpha1.Workspace,
+	components []v1alpha1.ComponentDescription,
+	clusterAPI ClusterAPI) RoutingProvisioningStatus {
 
 	specRouting, err := getSpecRouting(workspace, components, clusterAPI.Scheme)
 	if err != nil {
@@ -65,7 +65,12 @@ func SyncRoutingToCluster(
 		}
 	}
 
-	if !clusterRouting.Status.Ready {
+	if clusterRouting.Status.Phase == v1alpha1.RoutingFailed {
+		return RoutingProvisioningStatus{
+			ProvisioningStatus: ProvisioningStatus{FailStartup: true},
+		}
+	}
+	if clusterRouting.Status.Phase != v1alpha1.RoutingReady {
 		return RoutingProvisioningStatus{
 			ProvisioningStatus: ProvisioningStatus{
 				Continue: false,
@@ -76,7 +81,7 @@ func SyncRoutingToCluster(
 
 	return RoutingProvisioningStatus{
 		ProvisioningStatus: ProvisioningStatus{
-			Continue: clusterRouting.Status.Ready,
+			Continue: true,
 		},
 		PodAdditions:     clusterRouting.Status.PodAdditions,
 		ExposedEndpoints: clusterRouting.Status.ExposedEndpoints,
@@ -84,9 +89,9 @@ func SyncRoutingToCluster(
 }
 
 func getSpecRouting(
-		workspace *v1alpha1.Workspace,
-		componentDescriptions []v1alpha1.ComponentDescription,
-		scheme *runtime.Scheme) (*v1alpha1.WorkspaceRouting, error) {
+	workspace *v1alpha1.Workspace,
+	componentDescriptions []v1alpha1.ComponentDescription,
+	scheme *runtime.Scheme) (*v1alpha1.WorkspaceRouting, error) {
 
 	endpoints := map[string][]v1alpha1.Endpoint{}
 	for _, desc := range componentDescriptions {
@@ -104,7 +109,7 @@ func getSpecRouting(
 			IngressGlobalDomain: config.ControllerCfg.GetIngressGlobalDomain(),
 			Endpoints:           endpoints,
 			PodSelector: map[string]string{
-				"app": workspace.Status.WorkspaceId,
+				config.WorkspaceIDLabel: workspace.Status.WorkspaceId,
 			},
 		},
 	}

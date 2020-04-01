@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
+	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
@@ -43,10 +44,7 @@ func (r *ReconcileWorkspaceRouting) syncServices(routing *v1alpha1.WorkspaceRout
 		if contains, idx := listContainsByName(specService, clusterServices); contains {
 			clusterService := clusterServices[idx]
 			if !cmp.Equal(specService, clusterService, serviceDiffOpts) {
-				fmt.Printf("\n\n%s\n\n", cmp.Diff(specService, clusterService, serviceDiffOpts))
-
-				// TODO:
-				// Note: jsonpatch appears to ignore array fields, meaning that this is a no-op if ServicePorts are changed.
+				// TODO: jsonpatch appears to ignore array fields, meaning that this is a no-op if ServicePorts are changed.
 				// We also cannot use client.Update, as the spec contains ClusterIP which cannot be modified.
 				patch := client.MergeFrom(&specService)
 				err := r.client.Patch(context.TODO(), &clusterService, patch)
@@ -69,7 +67,7 @@ func (r *ReconcileWorkspaceRouting) syncServices(routing *v1alpha1.WorkspaceRout
 
 func (r *ReconcileWorkspaceRouting) getClusterServices(routing *v1alpha1.WorkspaceRouting) ([]corev1.Service, error) {
 	found := &corev1.ServiceList{}
-	labelSelector, err := labels.Parse(fmt.Sprintf("app=%s", routing.Spec.WorkspaceId)) // TODO This is manually synced with what's created, that's bad.
+	labelSelector, err := labels.Parse(fmt.Sprintf("%s=%s", config.WorkspaceIDLabel, routing.Spec.WorkspaceId))
 	if err != nil {
 		return nil, err
 	}

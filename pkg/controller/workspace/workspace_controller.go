@@ -32,7 +32,7 @@ type currentStatus struct {
 	// List of condition types that are true for the current workspace
 	Conditions []workspacev1alpha1.WorkspaceConditionType
 	// Current workspace phase
-	Phase      workspacev1alpha1.WorkspacePhase
+	Phase workspacev1alpha1.WorkspacePhase
 }
 
 // Add creates a new Workspace Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -179,7 +179,9 @@ func (r *ReconcileWorkspace) Reconcile(request reconcile.Request) (reconcileResu
 	reconcileStatus := currentStatus{
 		Phase: workspacev1alpha1.WorkspaceStatusStarting,
 	}
-	defer func() (reconcile.Result, error){return r.updateWorkspaceStatus(workspace, &reconcileStatus, reconcileResult, err)}()
+	defer func() (reconcile.Result, error) {
+		return r.updateWorkspaceStatus(workspace, clusterAPI, &reconcileStatus, reconcileResult, err)
+	}()
 
 	// Step one: Create components, and wait for their states to be ready.
 	componentsStatus := provision.SyncComponentsToCluster(workspace, clusterAPI)

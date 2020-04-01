@@ -121,10 +121,16 @@ func (r *ReconcileWorkspaceRouting) Reconcile(request reconcile.Request) (reconc
 		IngressGlobalDomain: instance.Spec.IngressGlobalDomain,
 	}
 
+	if instance.Status.Phase == workspacev1alpha1.RoutingFailed {
+		return reconcile.Result{}, err
+	}
+
 	solver, err := getSolverForRoutingClass(instance.Spec.RoutingClass)
 	if err != nil {
-		// TODO: This is a failure state that should be propagated
-		return reconcile.Result{}, err
+		reqLogger.Error(err, "Could not get solver for routingClass")
+		instance.Status.Phase = workspacev1alpha1.RoutingFailed
+		statusErr := r.client.Status().Update(context.TODO(), instance)
+		return reconcile.Result{}, statusErr
 	}
 
 	routingObjects := solver.GetSpecObjects(instance.Spec, workspaceMeta)
@@ -172,10 +178,12 @@ func (r *ReconcileWorkspaceRouting) Reconcile(request reconcile.Request) (reconc
 }
 
 func (r *ReconcileWorkspaceRouting) reconcileStatus(instance *workspacev1alpha1.WorkspaceRouting, routingObjects solvers.RoutingObjects) error {
-	if instance.Status.Ready && cmp.Equal(instance.Status.PodAdditions, routingObjects.PodAdditions) && cmp.Equal(instance.Status.ExposedEndpoints, routingObjects.ExposedEndpoints) {
+	if instance.Status.Phase == workspacev1alpha1.RoutingReady &&
+		cmp.Equal(instance.Status.PodAdditions, routingObjects.PodAdditions) &&
+		cmp.Equal(instance.Status.ExposedEndpoints, routingObjects.ExposedEndpoints) {
 		return nil
 	}
-	instance.Status.Ready = true
+	instance.Status.Phase = workspacev1alpha1.RoutingReady
 	instance.Status.PodAdditions = routingObjects.PodAdditions
 	instance.Status.ExposedEndpoints = routingObjects.ExposedEndpoints
 	return r.client.Status().Update(context.TODO(), instance)

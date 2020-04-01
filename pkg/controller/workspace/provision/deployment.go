@@ -28,7 +28,6 @@ var deploymentDiffOpts = cmp.Options{
 	cmpopts.IgnoreFields(appsv1.Deployment{}, "TypeMeta", "ObjectMeta", "Status"),
 	cmpopts.IgnoreFields(appsv1.DeploymentSpec{}, "RevisionHistoryLimit", "ProgressDeadlineSeconds"),
 	cmpopts.IgnoreFields(corev1.PodSpec{}, "DNSPolicy", "SchedulerName", "DeprecatedServiceAccount"),
-	// TODO: Should we really be ignoring pullPolicy? It caused diffs to fail for awhile and I don't know why
 	cmpopts.IgnoreFields(corev1.Container{}, "TerminationMessagePath", "TerminationMessagePolicy", "ImagePullPolicy"),
 	cmpopts.SortSlices(func(a, b corev1.Container) bool {
 		return strings.Compare(a.Name, b.Name) > 0
@@ -39,10 +38,10 @@ var deploymentDiffOpts = cmp.Options{
 }
 
 func SyncDeploymentToCluster(
-		workspace *v1alpha1.Workspace,
-		podAdditions []v1alpha1.PodAdditions,
-		saName string,
-		clusterAPI ClusterAPI) DeploymentProvisioningStatus {
+	workspace *v1alpha1.Workspace,
+	podAdditions []v1alpha1.PodAdditions,
+	saName string,
+	clusterAPI ClusterAPI) DeploymentProvisioningStatus {
 
 	// [design] we have to pass components and routing pod additions separately becuase we need mountsources from each
 	// component.
@@ -61,7 +60,7 @@ func SyncDeploymentToCluster(
 	}
 
 	if clusterDeployment == nil {
-		fmt.Printf("Creating deployment...\n")
+		clusterAPI.Logger.Info("Creating deployment...")
 		err := clusterAPI.Client.Create(context.TODO(), specDeployment)
 		return DeploymentProvisioningStatus{
 			ProvisioningStatus: ProvisioningStatus{
@@ -72,8 +71,7 @@ func SyncDeploymentToCluster(
 	}
 
 	if !cmp.Equal(specDeployment, clusterDeployment, deploymentDiffOpts) {
-		fmt.Printf("Updating deployment...\n")
-		fmt.Printf("\n\n%s\n\n", cmp.Diff(specDeployment, clusterDeployment, deploymentDiffOpts))
+		clusterAPI.Logger.Info("Updating deployment...")
 		clusterDeployment.Spec = specDeployment.Spec
 		err := clusterAPI.Client.Update(context.TODO(), clusterDeployment)
 		if err != nil {
@@ -100,20 +98,14 @@ func SyncDeploymentToCluster(
 }
 
 func checkDeploymentStatus(deployment *appsv1.Deployment) (ready bool) {
-	// TODO: available doesn't mean what you might think
-	for _, condition := range deployment.Status.Conditions {
-		if condition.Type != appsv1.DeploymentAvailable || condition.Status != corev1.ConditionTrue {
-			return true
-		}
-	}
-	return false
+	return deployment.Status.ReadyReplicas > 0
 }
 
 func getSpecDeployment(
-		workspace *v1alpha1.Workspace,
-		podAdditionsList []v1alpha1.PodAdditions,
-		saName string,
-		scheme *runtime.Scheme) (*appsv1.Deployment, error) {
+	workspace *v1alpha1.Workspace,
+	podAdditionsList []v1alpha1.PodAdditions,
+	saName string,
+	scheme *runtime.Scheme) (*appsv1.Deployment, error) {
 	replicas := int32(1)
 	terminationGracePeriod := int64(1)
 	rollingUpdateParam := intstr.FromInt(1)
@@ -152,8 +144,9 @@ func getSpecDeployment(
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app":                   workspace.Status.WorkspaceId, // TODO
-					config.WorkspaceIDLabel: workspace.Status.WorkspaceId,
+					config.CheOriginalNameLabel: config.CheOriginalName,
+					config.WorkspaceIDLabel:     workspace.Status.WorkspaceId,
+					config.WorkspaceNameLabel:   workspace.Name,
 				},
 			},
 			Strategy: appsv1.DeploymentStrategy{
@@ -168,9 +161,6 @@ func getSpecDeployment(
 					Name:      workspace.Status.WorkspaceId,
 					Namespace: workspace.Namespace,
 					Labels: map[string]string{
-						"app": workspace.Status.WorkspaceId, // TODO
-						// TODO: Copied in
-						"deployment":                workspace.Status.WorkspaceId,
 						config.CheOriginalNameLabel: config.CheOriginalName,
 						config.WorkspaceIDLabel:     workspace.Status.WorkspaceId,
 						config.WorkspaceNameLabel:   workspace.Name,

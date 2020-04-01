@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
+	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"k8s.io/api/extensions/v1beta1"
@@ -37,7 +38,6 @@ func (r *ReconcileWorkspaceRouting) syncIngresses(routing *v1alpha1.WorkspaceRou
 		if contains, idx := listContainsIngressByName(specIngress, clusterIngresses); contains {
 			clusterIngress := clusterIngresses[idx]
 			if !cmp.Equal(specIngress, clusterIngress, ingressDiffOpts) {
-				fmt.Printf("\n\n%s\n\n", cmp.Diff(specIngress, clusterIngress, ingressDiffOpts))
 				// Update ingress's spec
 				clusterIngress.Spec = specIngress.Spec
 				err := r.client.Update(context.TODO(), &clusterIngress)
@@ -60,7 +60,7 @@ func (r *ReconcileWorkspaceRouting) syncIngresses(routing *v1alpha1.WorkspaceRou
 
 func (r *ReconcileWorkspaceRouting) getClusterIngresses(routing *v1alpha1.WorkspaceRouting) ([]v1beta1.Ingress, error) {
 	found := &v1beta1.IngressList{}
-	labelSelector, err := labels.Parse(fmt.Sprintf("app=%s", routing.Spec.WorkspaceId)) // TODO This is manually synced with what's created, that's bad.
+	labelSelector, err := labels.Parse(fmt.Sprintf("%s=%s", config.WorkspaceIDLabel, routing.Spec.WorkspaceId))
 	if err != nil {
 		return nil, err
 	}

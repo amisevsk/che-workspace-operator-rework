@@ -26,8 +26,16 @@ const (
 type WorkspaceRoutingStatus struct {
 	PodAdditions     *PodAdditions                `json:"podAdditions,omitempty"`
 	ExposedEndpoints map[string][]ExposedEndpoint `json:"exposedEndpoints,omitempty"`
-	Ready            bool                         `json:"ready"`
+	Phase            WorkspaceRoutingPhase        `json:"phase,omitempty""`
 }
+
+type WorkspaceRoutingPhase string
+
+const (
+	RoutingReady     WorkspaceRoutingPhase = "Ready"
+	RoutingPreparing WorkspaceRoutingPhase = "Preparing"
+	RoutingFailed    WorkspaceRoutingPhase = "Failed"
+)
 
 type ExposedEndpoint struct {
 	Name       string                       `json:"name"`

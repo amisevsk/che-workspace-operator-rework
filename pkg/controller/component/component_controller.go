@@ -116,7 +116,6 @@ func (r *ReconcileComponent) Reconcile(request reconcile.Request) (reconcile.Res
 	components = append(components, pluginComponents...)
 
 	if brokerConfigMap != nil {
-		// TODO: Broker CM will not be deleted if it's no longer needed while workspace is running
 		reqLogger.Info("Reconciling broker ConfigMap")
 		ok, err := r.reconcileConfigMap(instance, brokerConfigMap, reqLogger)
 		if err != nil {

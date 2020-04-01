@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
+	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	routeV1 "github.com/openshift/api/route/v1"
@@ -62,7 +63,7 @@ func (r *ReconcileWorkspaceRouting) syncRoutes(routing *v1alpha1.WorkspaceRoutin
 
 func (r *ReconcileWorkspaceRouting) getClusterRoutes(routing *v1alpha1.WorkspaceRouting) ([]routeV1.Route, error) {
 	found := &routeV1.RouteList{}
-	labelSelector, err := labels.Parse(fmt.Sprintf("app=%s", routing.Spec.WorkspaceId+"oauth")) // TODO This is manually synced with what's created, that's bad.
+	labelSelector, err := labels.Parse(fmt.Sprintf("%s=%s", config.WorkspaceIDLabel, routing.Spec.WorkspaceId))
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +75,18 @@ func (r *ReconcileWorkspaceRouting) getClusterRoutes(routing *v1alpha1.Workspace
 	if err != nil {
 		return nil, err
 	}
-	return found.Items, nil
+
+	var routes []routeV1.Route
+	for _, route := range found.Items {
+		for _, ownerref := range route.OwnerReferences {
+			// We need to filter routes that are created automatically for ingresses on OpenShift
+			if ownerref.Kind == "Ingress" {
+				continue
+			}
+			routes = append(routes, route)
+		}
+	}
+	return routes, nil
 }
 
 func getRoutesToDelete(clusterRoutes, specRoutes []routeV1.Route) []routeV1.Route {

@@ -52,6 +52,8 @@ spec:
           description: WorkspaceRoutingStatus defines the observed state of WorkspaceRouting
           properties:
             exposedEndpoints: {}
+            phase:
+              type: string
             podAdditions:
               properties:
                 annotations:
@@ -3118,10 +3120,6 @@ spec:
                     type: object
                   type: array
               type: object
-            ready:
-              type: boolean
-          required:
-          - ready
           type: object
       type: object
   version: v1alpha1
