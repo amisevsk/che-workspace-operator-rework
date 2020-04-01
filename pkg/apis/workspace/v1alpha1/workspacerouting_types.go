@@ -17,7 +17,7 @@ type WorkspaceRoutingSpec struct {
 type WorkspaceRoutingClass string
 
 const (
-	WorkspaceRoutingDefault        WorkspaceRoutingClass = ""
+	WorkspaceRoutingDefault        WorkspaceRoutingClass = "basic"
 	WorkspaceRoutingOpenShiftOauth WorkspaceRoutingClass = "openshift-oauth"
 )
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/che-incubator/che-workspace-operator/internal/cluster"
 	workspacev1alpha1 "github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
+	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspacerouting/solvers"
 	"github.com/google/go-cmp/cmp"
 	routeV1 "github.com/openshift/api/route/v1"
@@ -190,6 +191,9 @@ func (r *ReconcileWorkspaceRouting) reconcileStatus(instance *workspacev1alpha1.
 }
 
 func getSolverForRoutingClass(routingClass workspacev1alpha1.WorkspaceRoutingClass) (solvers.RoutingSolver, error) {
+	if routingClass == "" {
+		routingClass = workspacev1alpha1.WorkspaceRoutingClass(config.ControllerCfg.GetDefaultRoutingClass())
+	}
 	switch routingClass {
 	case workspacev1alpha1.WorkspaceRoutingDefault:
 		return &solvers.BasicSolver{}, nil

@@ -12,7 +12,7 @@ const (
 	ingressGlobalDomain        = "ingress.global.domain"
 	defaultIngressGlobalDomain = ""
 
-	//workspacePVCName config property handles the PVC name that should be created and used for all workspaces within one kubernetes namespace
+	// workspacePVCName config property handles the PVC name that should be created and used for all workspaces within one kubernetes namespace
 	workspacePVCName        = "pvc.name"
 	defaultWorkspacePVCName = "claim-che-workspace"
 
@@ -20,6 +20,10 @@ const (
 
 	pluginArtifactsBrokerImage        = "che.workspace.plugin_broker.artifacts.image"
 	defaultPluginArtifactsBrokerImage = "quay.io/eclipse/che-plugin-artifacts-broker:v3.1.0"
+
+	// routingClass defines the default routing class that should be used if user does not specify it explicitly
+	routingClass        = "che.default_routing_class"
+	defaultRoutingClass = "basic"
 
 	webhooksEnabled        = "che.webhooks.enabled"
 	defaultWebhooksEnabled = "true"
