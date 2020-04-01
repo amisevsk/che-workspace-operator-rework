@@ -1,3 +1,15 @@
+//
+// Copyright (c) 2019-2020 Red Hat, Inc.
+// This program and the accompanying materials are made
+// available under the terms of the Eclipse Public License 2.0
+// which is available at https://www.eclipse.org/legal/epl-2.0/
+//
+// SPDX-License-Identifier: EPL-2.0
+//
+// Contributors:
+//   Red Hat, Inc. - initial API and implementation
+//
+
 package v1alpha1
 
 import (
@@ -7,11 +19,16 @@ import (
 // WorkspaceRoutingSpec defines the desired state of WorkspaceRouting
 // +k8s:openapi-gen=true
 type WorkspaceRoutingSpec struct {
-	WorkspaceId         string                `json:"workspaceId"`
-	RoutingClass        WorkspaceRoutingClass `json:"routingClass,omitempty"`
-	IngressGlobalDomain string                `json:"ingressGlobalDomain"`
-	Endpoints           map[string][]Endpoint `json:"endpoints"`
-	PodSelector         map[string]string     `json:"podSelector"`
+	// WorkspaceId for the workspace being routed
+	WorkspaceId string `json:"workspaceId"`
+	// Class of the routing: this drives which Workspace Routing controller will manage this routing
+	RoutingClass WorkspaceRoutingClass `json:"routingClass,omitempty"`
+	// Ingress global domain (corresponds to the OpenShift route suffix)
+	IngressGlobalDomain string `json:"ingressGlobalDomain"`
+	// Machines to endpoints map
+	Endpoints map[string][]Endpoint `json:"endpoints"`
+	// Selector that should be used by created services to point to the workspace Pod
+	PodSelector map[string]string `json:"podSelector"`
 }
 
 type WorkspaceRoutingClass string
@@ -24,11 +41,15 @@ const (
 // WorkspaceRoutingStatus defines the observed state of WorkspaceRouting
 // +k8s:openapi-gen=true
 type WorkspaceRoutingStatus struct {
-	PodAdditions     *PodAdditions                `json:"podAdditions,omitempty"`
+	// Additions to main workspace deployment
+	PodAdditions *PodAdditions `json:"podAdditions,omitempty"`
+	// Machine name to exposed endpoint map
 	ExposedEndpoints map[string][]ExposedEndpoint `json:"exposedEndpoints,omitempty"`
-	Phase            WorkspaceRoutingPhase        `json:"phase,omitempty""`
+	// Routing reconcile phase
+	Phase WorkspaceRoutingPhase `json:"phase,omitempty""`
 }
 
+// Valid phases for workspacerouting
 type WorkspaceRoutingPhase string
 
 const (
@@ -38,8 +59,11 @@ const (
 )
 
 type ExposedEndpoint struct {
-	Name       string                       `json:"name"`
-	Url        string                       `json:"url"`
+	// Name of the exposed endpoint
+	Name string `json:"name"`
+	// Public URL of the exposed endpoint
+	Url string `json:"url"`
+	// Attributes of the exposed endpoint
 	Attributes map[EndpointAttribute]string `json:"attributes"`
 }
 

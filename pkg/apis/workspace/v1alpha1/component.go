@@ -1,8 +1,24 @@
+//
+// Copyright (c) 2019-2020 Red Hat, Inc.
+// This program and the accompanying materials are made
+// available under the terms of the Eclipse Public License 2.0
+// which is available at https://www.eclipse.org/legal/epl-2.0/
+//
+// SPDX-License-Identifier: EPL-2.0
+//
+// Contributors:
+//   Red Hat, Inc. - initial API and implementation
+//
+
 package v1alpha1
 
+// Description of a devfile component's workspace additions
 type ComponentDescription struct {
-	Name              string            `json:"name"`
-	PodAdditions      PodAdditions      `json:"podAdditions"`
+	// The name of the component
+	Name string `json:"name"`
+	// Additions to the workspace pod
+	PodAdditions PodAdditions `json:"podAdditions"`
+	// Additional metadata from devfile (e.g. attributes, commands)
 	ComponentMetadata ComponentMetadata `json:"componentMetadata"`
 }
 
@@ -26,9 +42,14 @@ type ContainerDescription struct {
 	Ports []int `json:"ports,omitempty"`
 }
 
+// Command to add to workspace
 type CheWorkspaceCommand struct {
-	Name        string            `json:"name"`
-	Type        string            `json:"type"`
-	CommandLine string            `json:"commandLine"`
-	Attributes  map[string]string `json:"attributes,omitempty"`
+	// Name of the command
+	Name string `json:"name"`
+	// Type of the command
+	Type string `json:"type"`
+	// String representing the commandline to be executed
+	CommandLine string `json:"commandLine"`
+	// Attributes for command
+	Attributes map[string]string `json:"attributes,omitempty"`
 }
