@@ -1,3 +1,5 @@
+### This repository has been merged into the [Che workspace operator](https://github.com/che-incubator/che-workspace-operator) and is no longer being developed. See PR [#36](https://github.com/che-incubator/che-workspace-operator/pull/36) for details
+
 # Che workspace operator
 
 This repo is intended to be a proof-of-concept/proposal for a redesign of the [Che workspace operator](https://github.com/che-incubator/che-workspace-operator). The main goals are
